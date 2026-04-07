@@ -9,7 +9,7 @@
   <br>
   On Version 1.0 allows the management of a maximum of 3 shares. <br>
   <br>
-  Simply copy the aliases and functions into the .bashrc file, restart the <br>
+  Simply copy the aliases and functions into the #.bashrc# file, restart the <br>
   Raspberry Pi, and you'll have a simple NAS-Server. <br>
   <br>
   The tools will of course need to be customized for the main user. <br>
