@@ -19,7 +19,7 @@
   directly to the Raspberry Pi. <br>
   <br>
   <br>
-  sudo useradd -M -s /sbin/nologin <netuser> <br>
+  sudo useradd -M -s /sbin/nologin [netuser] <br>
   sudo usermod -aG users [netuser] <br>
   sudo smbpasswd -a [netuser]    ----> et the Samba password for <netuser> here. <br>
   sudo smbpasswd -e [netuser]    ----> User aktivate <br>
