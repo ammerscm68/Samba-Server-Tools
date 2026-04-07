@@ -20,8 +20,8 @@
   <br>
   <br>
   sudo useradd -M -s /sbin/nologin <netuser> <br>
-  sudo usermod -aG users <netuser> <br>
-  sudo smbpasswd -a <netuser>    ----> et the Samba password for <netuser> here. <br>
-  sudo smbpasswd -e <netuser>    ----> User aktivate <br>
+  sudo usermod -aG users [netuser] <br>
+  sudo smbpasswd -a [netuser]    ----> et the Samba password for <netuser> here. <br>
+  sudo smbpasswd -e [netuser]    ----> User aktivate <br>
   <br>
-  <netuser> - any username without rights on the Raspberry Pi (except on the respective share) <br>
+  [netuser] - any username without rights on the Raspberry Pi (except on the respective share) <br>
