@@ -111,7 +111,7 @@ alias config-bash='sudo nano /home/pi/.bashrc'
 alias speicher='df -h'
 alias usbpower='echo max_usb_current = 1 | sudo tee -a /boot/config.txt'
 alias btdisable='echo dtoverlay=pi3-disable-bt | sudo tee -a /boot/config.txt && sudo systemctl disable hciuart'
-alias devices='clear && echo && sudo lsblk -f && echo ----------------------------------------------------------------------------------------- && sudo lsblk -o name,label,partuuid'
+alias devices='clear && echo && sudo lsblk -f && echo -------------------------------------------------------------------------------------------- && sudo lsblk -o name,label,partuuid'
 alias btscan='sudo hcitool -i hci0 lescan'
 alias firmware-version='sudo rpi-eeprom-update'
 alias bootloader-update='sudo nano /etc/default/rpi-eeprom-update && cd /lib/firmware/raspberrypi/bootloader/stable/ && ls -l && echo sudo rpi-eeprom-update -d -f pieeprom-[Aktuelles Datum].bin'
@@ -129,7 +129,7 @@ alias networkmanager='sudo nmtui'
 alias getfstab='sudo nano /etc/fstab'
 alias firmware-update='sudo wget https://raw.github.com/Hexxeh/rpi-update/master/rpi-update -O /usr/bin/rpi-update && sudo chmod +x /usr/bin/rpi-update && sudo rpi-update && echo Reboot System && sudo reboot'
 alias samba-config='sudo nano /etc/samba/smb.conf'
-alias samba-restart='clear && echo && echo ***Restart Samba-Server*** && sudo systemctl daemon-reload && sleep 3 && sudo systemctl restart smbd; sleep 5; systemctl status smbd'
+alias samba-restart='clear && echo && echo ***Restart Samba-Server*** && sudo systemctl daemon-reload && sleep 3 && sudo systemctl reload smbd; sleep 5; systemctl status smbd'
 fi
 
 # colored GCC warnings and errors
@@ -165,8 +165,8 @@ fi
 # -------------Samba-Server-----------------
 # Disk-Tools (sicherer Datenträger-Manager)
 #
-#            April 2026
-#   Version 1.0 von Mario Ammerschuber
+#              April 2026
+#   Version 1.1 von Mario Ammerschuber
 #
 # WARNNG: Kann Daten unwiderruflich löschen!
 # ------------------------------------------
@@ -193,10 +193,9 @@ select_mountpoint() {
 
   printf "\n✅--- Verfügbare Samba-Freigaben ---✅\n"
 
-  # Die Eingabeaufforderung für 'select'
-  local PS3
-  printf -v PS3 "\nBitte Freigabenamen wählen: (1-%s oder %s) > " "${#SHARE_ORDER[@]}" "$(( ${#SHARE_ORDER[@]} + 1 ))"
-
+    # Die Eingabeaufforderung für 'select'
+    local PS3
+    printf -v PS3 "\nBitte Freigabenamen wählen: (1-%s oder %s) > " "${#SHARE_ORDER[@]}" "$(( ${#SHARE_ORDER[@]} + 1 ))"
 
   # 'select' erzeugt automatisch das Menü aus den Namen
   select name in "${SHARE_ORDER[@]}" "Abbrechen"; do
@@ -207,12 +206,11 @@ select_mountpoint() {
       # Hier passiert die Zuweisung: Der Pfad zum Namen wird in MOUNTPOINT gespeichert
       MOUNTPOINT="${SAMBA_SHARES[$name]}"
       printf "\n✅ Folgende Freigabe wurde gewählt: %s\n" "$name"
-      printf "📍 Zielpfad (Mountpoint): %s\n\n" "$MOUNTPOINT"
-      # Warten bis eine Taste gedrückt wird 
+      printf "\n📍Zielpfad (Mountpoint): %s\n\n" "$MOUNTPOINT"
+      # Warten bis eine Taste gedrückt wird
       printf "\n⌨️ Weiter mit beliebiger Taste...\n"
       # -n 1 (ein Zeichen), -s (stumm), -r (keine Backslash-Interpretation)
       read -n 1 -s -r
-
       return 0
     else
       printf "\n❌ Ungültige Wahl. Bitte eine Nummer aus der Liste eingeben.\n\n"
@@ -224,7 +222,8 @@ checkparameter() {
   red='\033[0;31m'
   reset='\033[0m'
 
-  if [ $# -eq 0 ]; then
+  if [ "$#" -eq 0 ]; then
+    printf "\n"
     printf "${red}Fehler:${reset} Gerätename erforderlich (z.B. /dev/sdb)\n\n"
     return 1
   fi
@@ -265,13 +264,13 @@ format() {
   local label="DATA"
   local uuid
 
+  # Expliziter Aufruf → Fehlermeldung SICHTBAR
+  checkparameter "$@" || return 1
+
   dev="/dev/$(basename "$1")"
 
-  # Expliziter Aufruf → Fehlermeldung SICHTBAR
-  checkparameter "$dev" || return 1
-
   printf "\nℹ️ Prüfe gemountete Partitionen...\n\n"
-  smballdismount "$dev" || return 1
+  smballpartdismount "$dev" || return 1
 
   # HARTE SYNCHRONISATION
   printf "\nℹ️ Sync + Partitionstabelle neu laden...\n\n"
@@ -280,17 +279,17 @@ format() {
   sudo blockdev --rereadpt "$dev" 2>/dev/null || sudo partprobe "$dev"
   sleep 2
 
-  printf "\nℹ️ Laufwerk: %s\n\n" "$dev"
+  printf "\nℹ️ Ausgewähltes Laufwerk: %s\n\n" "$dev"
   lsblk "$dev"
   printf "\n"
 
   printf "${red}WARNUNG:${reset} Alle Daten und Partitionen auf %s werden GELÖSCHT!\n\n" "$dev"
-  printf "\nNeue GPT-Tabelle → ext4-Partition\n\n"
+  printf "\n*** Neue GPT-Tabelle → ext4-Partition ***\n\n"
 
   read -r -p "❓ Letzte Chance: Wirklich alles löschen? (ja/nein): " bestaetigung2
   printf "\n"
   if [ "$bestaetigung2" != "ja" ]; then
-    printf "Abgebrochen.\n\n"
+    printf "\n⚠️ Vorgang durch Benutzer abgebrochen.\n\n"
     return 1
   fi
 
@@ -310,16 +309,17 @@ format() {
   sudo mkfs.ext4 -F -L "$label" "${dev}1"
   sleep 2
 
-  printf "✅ Fertig: → %s (ext4)-Partition\n\n" "${dev}1"
+  printf "\n✅ Fertig: → %s (ext4)-Partition\n\n" "${dev}1"
 
-  # Frage ob Mountpoint in fstab geschrieben werden soll (inkl. Mounten)
+  # Frage ob Eintrag in fstab geschrieben werden soll (inkl. Mounten)
   read -r -p "❓ Soll gleich ein Eintrag in der fstab erstellt werden ? (ja/nein): " fstab_antwort
   printf "\n"
     if [ "$fstab_antwort" = "ja" ]; then
     clear
-    setfstab "$dev" || return 1
+    setfstab "$dev" nowfstab || return 1
     else
     printf "\n"
+    printf "\n🔄 fstab-Eintrag wird ***nicht*** erstellt.\n\n"
     fi
 }
 
@@ -333,13 +333,18 @@ setfstab() {
   local uuid
   local fstype
 
+  # Expliziter Aufruf → Fehlermeldung SICHTBAR
+  checkparameter "$@" || return 1
+
   dev="/dev/$(basename "$1")"
 
-  # Expliziter Aufruf → Fehlermeldung SICHTBAR
-  checkparameter "$dev" || return 1
-
+  # Nur wenn vorher nicht das dev formatiert wurde
+  if [ "$2" != "nowfstab" ]; then
   printf "\nℹ️ Prüfe ob Partition noch gemountet ist...\n"
   smbdismount "$dev" || return 1
+  else
+  select_mountpoint || return 1
+  fi
 
   # HARTE SYNCHRONISATION
   printf "\nℹ️ Sync + Partitionstabelle neu laden...\n\n"
@@ -371,11 +376,7 @@ setfstab() {
 
   read -r -p "❓ fstab-Eintrag jetzt erstellen? (ja/nein): " antwort
   printf "\n"
-  if [ "$antwort" != "ja" ]; then
-    printf "Abgebrochen.\n\n"
-    return 1
-  fi
-
+  if [ "$antwort" = "ja" ]; then
   # Existierenden Eintrag für diesen Mountpoint entfernen (egal welche UUID dort stand)
   if grep -q "[[:space:]]$MOUNTPOINT[[:space:]]" /etc/fstab; then
     printf "\nℹ️  Entferne alten fstab-Eintrag für %s...\n" "$MOUNTPOINT"
@@ -386,13 +387,16 @@ setfstab() {
   echo "UUID=$uuid  $MOUNTPOINT  $fstype  defaults,noatime,nofail  0  2" | sudo tee -a /etc/fstab >/dev/null
 
   printf "\n✅ fstab-Eintrag erstellt.\n\n"
+  else
+   printf "\n🔄 fstab-Eintrag wird ***nicht*** erstellt.\n\n"
+  fi
 
   # Nach dem fstab-Eintrag: Mount-Abfrage
-  read -r -p "❓ Soll das Laufwerk auch gleich gemoutet werden ? ($part → $MOUNTPOINT) (ja/nein): " mount_antwort
+  read -r -p "❓ Soll die Partition auch gleich gemoutet werden ? ($part → $MOUNTPOINT) (ja/nein): " mount_antwort
   printf "\n"
     if [ "$mount_antwort" = "ja" ]; then
     clear
-    smbmount "$dev" || return 1
+    smbmount "$dev" afterfstab || return 1
     else
     printf "\n"
     fi
@@ -402,11 +406,15 @@ smbmount() {
   local red='\033[0;31m'
   local reset='\033[0m'
 
-  local dev="/dev/$(basename "$1")"
-  checkparameter "$dev" || return 1
+  checkparameter "$@" || return 1
 
+  local dev="/dev/$(basename "$1")"
+
+  # Nur wenn vorher nicht das dev formatiert wurde
+  if [ "$2" != "afterfstab" ]; then
   # Auswahl des Mountpoints abfragen
   select_mountpoint || return 1
+  fi
 
   # Wir ermitteln die Partition (z.B. /dev/sdb1), falls nur /dev/sdb angegeben wurde
   local part=$(lsblk -pnlo NAME,FSTYPE "$dev" | awk '$2!="" {print $1; exit}')
@@ -418,7 +426,7 @@ smbmount() {
 
   # Mount-Abfrage
   printf "\n"
-  read -r -p "❓ Laufwerk jetzt mounten? ($part → $MOUNTPOINT) (ja/nein): " mount_antwort
+  read -r -p "❓ Partition jetzt mounten? ($part → $MOUNTPOINT) (ja/nein): " mount_antwort
   printf "\n"
 
   if [ "$mount_antwort" = "ja" ]; then
@@ -435,28 +443,27 @@ smbmount() {
       sudo chmod 775 "$MOUNTPOINT"
 
       # Optional: Auch Unterordner anpassen, falls vorhanden (Achtung:  dauert bei vielen Dateien sehr lange --> Geduld)
-      # sudo chmod -R 775 "$MOUNTPOINT" 
+      # sudo chmod -R 775 "$MOUNTPOINT"
 
-      # --- NEU: Samba-Refresh ---------------------------------------------
-      printf "\n🔄 Starte Samba-Dienst neu...\n"
-      sudo systemctl daemon-reload && sleep 2 && sudo systemctl restart smbd
-      # --------------------------------------------------------------------
-
-      printf "\n✅ Erfolgreich: %s ist bereit für Samba.\n\n" "$MOUNTPOINT"
+      # --- Starte Samba-Server wieder  -----------------------
+      printf "\n🔄 Neustart Samba-Server...\n\n";
+      smbcontrol restart # Restart Samba-Server
+      # -------------------------------------------------------
+      printf "\n✅ Erfolgreich: %s ist bereit für Netzwerkverbindungen.\n\n" "$MOUNTPOINT"
     else
       printf "\n❌ Mount von %s fehlgeschlagen!\n\n" "$part"
       return 1
     fi
-  else
+    else
      printf "\nℹ️ Kein Mount durchgeführt. (%s bleibt im Sicherheitsmodus 555)\n\n" "$MOUNTPOINT"
   fi
 }
 
 smbdismount() {
-  local dev="/dev/$(basename "$1")"
-
   # Parameter-Check
-  checkparameter "$dev" || return 1
+  checkparameter "$@" || return 1
+
+  local dev="/dev/$(basename "$1")"
 
   # 1. Auswahl des spezifischen Mountpoints abfragen
   select_mountpoint || return 1
@@ -471,16 +478,15 @@ smbdismount() {
 
   # 3. Benutzer fragen (zeigt auch an, welches Device dort hängt)
   local current_source=$(findmnt -no SOURCE "$MOUNTPOINT")
-  printf "\nℹ️ Aktiv gemountet: %s (auf %s)\n" "$MOUNTPOINT" "$current_source"
+  printf "\nℹ️ Aktiv gemountet: %s (auf %s)\n\n" "$MOUNTPOINT" "$current_source"
   printf "\n"
   read -r -p "❓ Diese Freigabe jetzt dismounten? (ja/nein): " confirm
-  [[ "$confirm" != "ja" ]] && { printf "Abgebrochen.\n\n"; return 1; }
+  [[ "$confirm" != "ja" ]] && { printf "\n⚠️ Vorgang durch Benutzer abgebrochen.\n\n"; return 1; }
 
-  # --- Stop Samba-Server ----------------------------------------------
-  printf "\n🔄 Trenne Samba-Verbindungen...\n"
-  sudo systemctl stop smbd
-  sleep 3
-  # --------------------------------------------------------------------
+  # --- Stop Samba-Server  -------------------------------
+  printf "\n🔄 Trenne Samba-Verbindungen...\n\n";
+  smbcontrol stop
+  # ------------------------------------------------------
 
   # 4. Gezielter Dismount des Verzeichnisses
   printf "\nℹ️ Dismount %s → Bitte warten..." "$MOUNTPOINT"
@@ -488,35 +494,34 @@ smbdismount() {
   if sudo umount "$MOUNTPOINT" 2>/dev/null || {
        printf "\n⚠️ Dismount blockiert! Prozesse killen... ";
        sudo fuser -km "$MOUNTPOINT" 2>/dev/null;
-       sleep 1; 
-       sudo umount "$MOUNTPOINT"; 
+       sleep 1;
+       sudo umount "$MOUNTPOINT";
      }; then
-    printf "✅\n"
+    printf "\n✅\n"
 
     # 5. FINALE SICHERHEIT: Verzeichnis sperren
     sudo chmod 555 "$MOUNTPOINT" 2>/dev/null
     printf "\n🔒 Verbindung getrennt. %s ist jetzt sicher (555).\n" "$MOUNTPOINT"
     local success=1
   else
-    printf "\n❌ Dismount von %s fehlgeschlagen!\n" "$MOUNTPOINT"
+    printf "❌ Dismount von %s fehlgeschlagen!\n" "$MOUNTPOINT"
     local success=0
   fi
 
-  # --- Starte Samba-Server wieder -------------------------------------
-  printf "\n🔄 Starte Samba-Dienst neu...\n"
-  sudo systemctl start smbd
-  sleep 3
-  # --------------------------------------------------------------------
+  # --- Starte Samba-Server wieder  -----------------------
+  printf "\n🔄 Starte Samba-Verbindungen...\n\n";
+  smbcontrol start
+  # -------------------------------------------------------
 
   [[ $success -eq 1 ]] && printf "\n✅ Vorgang erfolgreich abgeschlossen.\n\n"
   [[ $success -eq 0 ]] && return 1
 }
 
-smballdismount() {
-  local dev="/dev/$(basename "$1")"
-
+smballpartdismount() {
   # Parameter-Check: Falls kein Argument übergeben wurde
-  checkparameter "$dev" || return 1
+  checkparameter "$@" || return 1
+
+  local dev="/dev/$(basename "$1")"
 
   # 1. Alle Partitionen des Laufwerks finden
   local partitions=($(lsblk -pnlo NAME "$dev" | grep -v "^$dev$"))
@@ -525,7 +530,7 @@ smballdismount() {
   if [ ${#partitions[@]} -eq 0 ]; then
     printf "\nℹ️ Keine Partitionen auf %s gefunden.\n" "$dev"
     sudo chmod 555 "$MOUNTPOINT" 2>/dev/null
-    printf "🔒 Sicherheits-Modus: %s ist schreibgeschützt (555).\n\n" "$MOUNTPOINT"
+    printf "\n🔒 Sicherheits-Modus: %s ist schreibgeschützt (555).\n\n" "$MOUNTPOINT"
     return 0
   fi
 
@@ -541,20 +546,19 @@ smballdismount() {
   if [ ${#mounted_parts[@]} -eq 0 ]; then
     printf "\nℹ️ Keine der Partitionen auf %s ist zurzeit gemountet.\n" "$dev"
     sudo chmod 555 "$MOUNTPOINT" 2>/dev/null
-    printf "🔒 Sicherheits-Modus: %s ist schreibgeschützt (555).\n\n" "$MOUNTPOINT"
+    printf "\n🔒 Sicherheits-Modus: %s ist schreibgeschützt (555).\n\n" "$MOUNTPOINT"
     return 0
   fi
 
   # 5. Benutzer fragen
-  printf "\nℹ️ Aktiv gemountet: %s\n" "${mounted_parts[*]}"
+  printf "\nℹ️ Aktiv gemountet: %s\n\n" "${mounted_parts[*]}"
   read -r -p "❓ Diese Partition(en) jetzt dismounten? (ja/nein): " confirm
-  [[ "$confirm" != "ja" ]] && { printf "Abgebrochen.\n\n"; return 1; }
+  [[ "$confirm" != "ja" ]] && { printf "\n⚠️ Vorgang durch Benutzer abgebrochen.\n\n"; return 1; }
 
-  # --- Stop Samba-Server ----------------------------------------------
-  printf "\n🔄 Trenne Samba-Verbindungen...\n"
-  sudo systemctl stop smbd  # Stoppen ist hier sicherer als Restart
-  sleep 2
-  # --------------------------------------------------------------------
+  # --- Stop Samba-Server  -------------------------------
+  printf "\n🔄 Trenne Samba-Verbindungen...\n\n";
+  smbcontrol stop
+  # ------------------------------------------------------
 
   # 6. Schleife über alle gemounteten Partitionen
   local count=0
@@ -562,16 +566,16 @@ smballdismount() {
     printf "→ Dismount %s... " "$part"
 
     # Versuche Dismount (Erst Normal, dann mit fuser)
-    if sudo umount "$part" 2>/dev/null || { 
-         printf "\n⚠️ Dismount ist blockiert! Prozesse killen... "; 
-         sudo fuser -km "$part" 2>/dev/null; 
-         sleep 2; 
-         sudo umount "$part"; 
+    if sudo umount "$part" 2>/dev/null || {
+         printf "\n⚠️ Dismount ist blockiert! Prozesse killen... ";
+         sudo fuser -km "$part" 2>/dev/null;
+         sleep 2;
+         sudo umount "$part";
        }; then
       printf "✅\n"
       ((count++))
     else
-      printf "❌ Dismount fehlgeschlagen!\n"
+      printf "\n❌ Dismount fehlgeschlagen!\n";
       return 1
     fi
   done
@@ -584,10 +588,70 @@ smballdismount() {
     local success=1
   fi
 
-  # --- Starte Samba-Server wieder -------------------------------------
-  printf "\n🔄 Starte Samba-Dienst neu...\n"
-  sudo systemctl start smbd
-  # --------------------------------------------------------------------
+  # --- Starte Samba-Server wieder  -----------------------
+  printf "\n🔄 Starte Samba-Verbindungen...\n\n";
+  smbcontrol start
+  # -------------------------------------------------------
 
   printf "\n✅ %s/%s Partition(en) erfolgreich bearbeitet.\n\n" "$count" "${#mounted_parts[@]}"
+}
+
+smbcontrol() {
+  local red='\033[0;31m'
+  local reset='\033[0m'
+  local service="smbd"
+  local action="$1"
+
+  # 1. Parameter-Prüfung (jetzt inkl. restart)
+  if [[ "$action" != "start" && "$action" != "stop" && "$action" != "restart" ]]; then
+    printf "\n❌ Ungültige Parameterangabe(n) - Nutze 'start', 'stop' oder 'restart'\n\n"
+    return 1
+  fi
+
+  # ------------------------- START ---------------------------------------------
+  if [[ "$action" == "start" ]]; then
+    if systemctl -q is-active "$service"; then
+      printf "\nℹ️ Der SAMBA-Server ist bereits gestartet.\n\n"
+      return 0
+    fi
+    printf "\nℹ️ Der Samba-Server wird gestartet - Bitte warten ....\n\n"
+    sudo systemctl start "$service"
+
+  # ------------------------- STOP ----------------------------------------------
+  elif [[ "$action" == "stop" ]]; then
+    if ! systemctl -q is-active "$service"; then
+      printf "\nℹ️ Der SAMBA-Server ist bereits gestoppt.\n\n"
+      return 0
+    fi
+    printf "\nℹ️ Der Samba-Server wird gestoppt - Bitte warten ....\n\n"
+    sudo systemctl stop "$service"
+
+  # ------------------------- RESTART -------------------------------------------
+  elif [[ "$action" == "restart" ]]; then
+    printf "\n🔄 Der Samba-Server wird neu gestartet - Bitte warten ....\n\n"
+    sudo systemctl daemon-reload # zur Sicherheit daemon neu starten
+    sleep 3
+    sudo systemctl restart "$service"
+  fi
+
+  # Kurze Pause für die System-Initialisierung
+  sleep 3
+
+  # ------------------------- ABSCHLUSSPRÜFUNG ----------------------------------
+  if [[ "$action" == "stop" ]]; then
+    if ! systemctl -q is-active "$service"; then
+      printf "\n✅ Erfolg: Der SAMBA-Server wurde erfolgreich gestoppt.\n\n"
+      return 0
+    fi
+  else
+    # Gilt für start und restart
+    if systemctl -q is-active "$service"; then
+      printf "\n✅ Erfolg: Der SAMBA-Server ist aktiv/gestartet.\n\n"
+      return 0
+    fi
+  fi
+
+  # Falls die Prüfung oben nicht erfolgreich war:
+  printf "\n${red}Fehler:${reset} Die Aktion '%s' Samba-Server konnte nicht korrekt ausgeführt werden !!!\n\n" "$action"
+  return 1
 }
