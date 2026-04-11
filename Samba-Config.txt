@@ -1,5 +1,6 @@
 # *********** Freigaben am Ende der Datei einfügen ***********
 # sudo nano /etc/samba/smb.conf
+# Die Namen Freigabe1, Freigabe2, Freigabe3 können durch eigene Namen ersetzt werden
 
 [Freigabe1]
    comment = Raspberry Pi Freigabe
@@ -9,7 +10,7 @@
    only guest = no
    create mask = 0775
    directory mask = 0775
-   valid users = samba, [weiterer User]
+   valid users = samba, [weitere User]
    force user = samba
    public = no
 
@@ -21,7 +22,7 @@
    only guest = no
    create mask = 0775
    directory mask = 0775
-   valid users = samba, [weiterer User]
+   valid users = samba, [weitere User]
    force user = samba
    public = no
 
@@ -33,6 +34,6 @@
    only guest = no
    create mask = 0775
    directory mask = 0775
-   valid users = samba, [weiterer User]
+   valid users = samba, [weitere User]
    force user = samba
    public = no
