@@ -5,9 +5,10 @@
   2.  setfstab (/dev/sdb  (sdb is an example) <br>
   3.  smbmount /dev/sdb  (sdb is an example) <br>
   4.  smbdismount /dev/sdb  (sdb is an example - only dismount partition 1) <br>
-  5.  smballdismount /dev/sdb  (sdb is an example - dismounts all partitions) <br>
+  5.  smballpartdismount /dev/sdb  (sdb is an example - dismounts all partitions) <br>
+  6.  smbcontrol start (allowed parameters start, stop, restart) <br>
   <br>
-  On Version 1.0 allows the management of a maximum of 3 shares. <br>
+  On Version 1.1 allows the management of a maximum of 3 shares. <br>
   <br>
   Simply copy the aliases and functions into the [.bashrc] file of the mainuser, restart the <br>
   Raspberry Pi, and you'll have a simple NAS-Server. <br>
@@ -17,7 +18,6 @@
   You can then create multiple users who, for example, are only allowed <br>
   to connect to a single share but are not allowed to log in via SSH or <br>
   directly to the Raspberry Pi. <br>
-  <br>
   <br>
   sudo useradd -M -s /sbin/nologin [netuser] <br>
   sudo usermod -aG users [netuser] <br>
