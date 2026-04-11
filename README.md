@@ -8,6 +8,8 @@
   5.  smballpartdismount /dev/sdb  (sdb is an example - dismounts all partitions) <br>
   6.  smbcontrol start (allowed parameters start, stop, restart) <br>
   <br>
+  Many more simplified commands can be found in the aliases of the .bashrc file. <br>
+  <br>
   On Version 1.1 allows the management of a maximum of 3 shares. <br>
   Version 1.1 included some improvements to the logic and a bug fix. <br>
   <br>
