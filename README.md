@@ -1,11 +1,11 @@
 # Samba-Server Tools for easy management a raspberry pi simple NAS
   
   The following commands can be executed:<br>
-  1.  format /dev/sdb  (sdb is an example) <br>
-  2.  setfstab (/dev/sdb  (sdb is an example) <br>
-  3.  smbmount /dev/sdb  (sdb is an example) <br>
-  4.  smbdismount /dev/sdb  (sdb is an example - only dismount partition 1) <br>
-  5.  smballpartdismount /dev/sdb  (sdb is an example - dismounts all partitions) <br>
+  1.  format /dev/sdb or sdb  (sdb is an example) <br>
+  2.  setfstab (/dev/sdb or sdb  (sdb is an example) <br>
+  3.  smbmount /dev/sdb or sdb (sdb is an example) <br>
+  4.  smbdismount /dev/sdb or sdb (sdb is an example - only dismount partition 1) <br>
+  5.  smballpartdismount /dev/sdb or sdb (sdb is an example - dismounts all partitions) <br>
   6.  smbcontrol start (allowed parameters start, stop, restart) <br>
   <br>
   Many more simplified commands can be found in the aliases of the .bashrc file. <br>
