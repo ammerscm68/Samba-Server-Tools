@@ -120,7 +120,7 @@ format() {
   printf "\n"
 
   printf "${red}WARNUNG:${reset} Alle Daten und Partitionen auf %s werden GELÖSCHT!\n\n" "$dev"
-  printf "\nNeue GPT-Tabelle → ext4-Partition" 
+  printf "\n *** Neue GPT-Tabelle → ext4-Partition ***\n\n" 
 
   read -r -p "❓Letzte Chance: Wirklich alles löschen? (ja/nein): " bestaetigung2
   printf "\n"
