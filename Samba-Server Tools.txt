@@ -14,12 +14,12 @@ SAMBAMAINUSER="samba"
 # Achtung:  Die Mountpoints vorher anlegen ! (Rechte werden automatisch vergeben)
 declare -A SAMBA_SHARES
 SAMBA_SHARES=(
-  ["Gewamed"]="/home/samba/shared1"
+  ["Freigabe1"]="/home/samba/shared1"
   ["Freigabe2"]="/home/samba/shared2"
   ["Freigabe3"]="/home/samba/shared3"
 )
 # Reihenfolge der Anzeige im Auswahlmenu
-SHARE_ORDER=("Gewamed" "Freigabe2" "Freigabe3")
+SHARE_ORDER=("Freigabe1" "Freigabe2" "Freigabe3")
 
 # Die Variable für das Ergebnis (leer)
 MOUNTPOINT=""
