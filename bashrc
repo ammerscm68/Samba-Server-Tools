@@ -178,7 +178,7 @@ SAMBAMAINUSER="samba"
 # Achtung:  Die Mountpoints vorher anlegen ! (Rechte werden automatisch vergeben)
 declare -A SAMBA_SHARES
 SAMBA_SHARES=(
-  ["Gewamed"]="/home/samba/shared1"
+  ["Freigabe1"]="/home/samba/shared1"
   ["Freigabe2"]="/home/samba/shared2"
   ["Freigabe3"]="/home/samba/shared3"
 )
