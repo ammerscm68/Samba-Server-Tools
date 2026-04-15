@@ -13,9 +13,9 @@
   <br>
   On Version 1.1 allows the management of a maximum of 3 shares. <br>
   Version 1.1 included some improvements to the logic and a bug fix. <br>
-  ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++<br>
+  ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++<br>
   Version 2.0 has been completely redesigned. Samba server configuration is <<< now entirely interactive >>>. <br>
-  ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++<br>
+  ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++<br>
   <br>
   Simply copy the aliases and functions into the [.bashrc] file of the mainuser, restart the <br>
   Raspberry Pi, and you'll have a simple NAS-Server. <br>
