@@ -1,4 +1,4 @@
-# Samba-Server Tools for easy management a raspberry pi simple NAS
+# Samba-Server Tools for easy management a "Raspberry Pi" simple NAS
   
   The following commands can be executed:<br>
   1.  smbusermanager  (Interactive creation or deletion of a user for Linux and SAMBA)
