@@ -13,10 +13,10 @@
   Many more simplified commands can be found in the aliases of the .bashrc file. <br>
   <br>
   *************************************************************************<br>
-  Version 2.1 - Interactive User Manager added.
-  ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++<br>
+  Version 2.1 - Interactive User Manager added. br>
+  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++<br>
   Version 2.0 has been completely redesigned. Samba server configuration is <<< now entirely interactive >>>. <br>
-  ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++<br>
+  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++<br>
   Version 1.1 included some improvements to the logic and a bug fix. <br>
   On Version 1.1 allows the management of a maximum of 3 shares. <br>
   ***************************************************************************<br>
