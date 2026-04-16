@@ -166,7 +166,7 @@ fi
 # Disk-Tools (sicherer Datenträger-Manager)
 #
 #              April 2026
-#   Version 2.0 von Mario Ammerschuber
+#   Version 2.1 von Mario Ammerschuber
 #
 # WARNNG: Kann Daten unwiderruflich löschen!
 # ------------------------------------------
@@ -195,6 +195,168 @@ checksudo() {
     printf "\n📍 Bitte melden Sie sich als 'Root' an und installieren es mit: > apt update && apt upgrade && apt install sudo\n\n"
     return 1
   fi
+}
+
+smbusermanager() {
+    # Prüfen ob "sudo" installiert ist
+    checksudo || return 1
+
+    # Prüfen ob "Samba" installiert ist
+    checksmbinstall || return 1
+
+    local netuser="$1" # Erster Parameter
+    local choice
+    local pass1 pass2
+
+    clear # Bildschirm leeren
+
+    # Parameter-Modus oder Menü-Modus?
+    if [[ -n "${netuser// /}" ]]; then
+        # --- PARAMETER-MODUS ---
+        # Wenn ein Name beim Aufruf dabei ist, wollen wir IMMER hinzufügen.
+        # Falls der User schon da ist -> Abbruch (damit nichts überschrieben wird)
+        if id "$netuser" &>/dev/null; then
+         return 1
+        fi
+        choice="1"
+    else
+  printf "\n👤 *** SAMBA BENUTZER-VERWALTUNG ***\n"
+  printf "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+  printf " 1) Benutzer hinzufügen\n"
+  printf " 2) Benutzer löschen\n"
+  printf " 3) Benutzer auflisten\n"
+  printf " 4) Abbrechen\n"
+  printf "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+  read -r -p "Bitte wählen (1-4): " choice
+
+  # Sofort-Aktionen ohne Namensabfrage
+  if [[ "$choice" == "3" ]]; then
+    printf "\n📋 Registrierte Samba-Benutzer:\n"
+    printf "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+    # Filtert die Liste für eine schönere Anzeige
+    sudo pdbedit -L | awk -F: '{print "👤 " $1 " (UID: " $2 ")"}'
+    printf "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+    return 0
+  elif [[ "$choice" == "4" || -z "$choice" ]]; then
+    printf "\n👤 Benutzerverwaltung abgebrochen.\n\n\n"
+    return 1
+  fi
+
+  printf "\n\n\n"
+  read -r -p "👤 Bitte Benutzernamen eingeben: " netuser
+  fi
+
+  # 1. Sicherheits-Check: Ist es der aktuelle User?
+  if [[ "$netuser" == "$USER" ]]; then
+    printf "\n❌ Sicherheitssperre: Der eigene Account ('%s')\n" "$USER"
+    printf "kann hier nicht modifiziert oder gelöscht werden!\n\n"
+    return 1
+  fi
+
+  # 2. Leere Eingabe prüfen
+  if [[ -z "$netuser" ]]; then
+    printf "\n⚠️ Achtung: Kein Benutzername eingegeben - Abbruch!\n\n"
+    return 1
+  fi
+
+  case "$choice" in
+    1) # --- HINZUFÜGEN ---
+         if id "$netuser" &>/dev/null; then
+            printf "\n⚠️ Der Samba-Benutzer '%s' existiert bereits.\n\n" "$netuser"
+            return 1
+         fi
+
+         # --- Passwort-Validierungsschleife ---
+         while true; do
+             printf "\n🔐 Kennwort für '%s' festlegen\n\n" "$netuser"
+             read -r -s -p "🔐 Neues Kennwort: " pass1
+             printf "\n"
+             read -r -s -p "🔐 Kennwort bestätigen: " pass2
+             printf "\n"
+
+             if [[ -z "$pass1" ]]; then
+                  printf "❌ Fehler: Das Kennwort darf nicht leer sein!\n\n"
+             elif [[ ${#pass1} -lt 6 ]]; then
+                  printf "❌ Fehler: Kennwort zu kurz (mind. 6 Zeichen erforderlich)!\n\n"
+             elif [[ "$pass1" != "$pass2" ]]; then
+                 printf "❌ Fehler: Die Kennwörter stimmen nicht überein!\n\n"
+             else
+                 break # Passwort ist valide
+             fi
+
+             read -r -p "🔄 Jetzt erneut versuchen? (ja/nein): " retry
+             [[ "$retry" != "ja" ]] && { printf "\n⚠️ Vorgang durch Benutzer abgebrochen.\n\n"; return 1; }
+         done
+
+         printf "\n⚙️ Der Benutzer wird angelegt - Bitte warten...\n\n"
+         # Systemuser anlegen - ohne eigenes Login
+         sudo useradd -M -s /sbin/nologin "$netuser"
+         sleep 2
+         sudo usermod -aG users "$netuser"
+         sleep 2
+
+         # Passwort an Samba übergeben (ohne erneute manuelle Abfrage)
+         if ! (echo "$pass1"; echo "$pass1") | sudo smbpasswd -s -a "$netuser"; then
+           printf "\n❌ Fehler: Das Samba-Kennwort konnte nicht gesetzt werden.\n\n"
+           printf "⚙️ Bereinige System: Lösche Systembenutzer '%s' wieder...\n\n" "$netuser"
+           sudo userdel "$netuser" 2>/dev/null
+           sleep 2
+           # --- Starte Samba-Server wieder  -----------------------
+           printf "\n🔄 Neustart Samba-Server...\n\n";
+           smbcontrol restart # Restart Samba-Server
+           # -------------------------------------------------------
+           return 1
+         fi
+         sudo smbpasswd -e "$netuser" > /dev/null
+         printf "\n✅ Der Samba-Benutzer '%s' wurde erfolgreich eingerichtet.\n\n" "$netuser"
+         # --- Starte Samba-Server wieder  -----------------------
+         printf "\n🔄 Neustart Samba-Server...\n\n";
+         smbcontrol restart # Restart Samba-Server
+         # -------------------------------------------------------
+         ;;
+
+    2) # --- LÖSCHEN ---
+      # 1. Säuberung: Entfernt eventuelle Leerzeichen am Anfang/Ende
+      netuser=$(echo "$netuser" | xargs)
+
+      # 2. Erweiterte Prüfung: Existiert er in Linux ODER in Samba?
+      if ! id "$netuser" &>/dev/null && ! sudo pdbedit -L -u "$netuser" &>/dev/null; then
+      printf "\n⚠️ Achtung: Der Benutzer '%s' existiert in keiner Datenbank.\n" "$netuser"
+      printf "\nℹ️ Tipp: Linux unterscheidet Groß/Kleinschreibung (willi != Willi)!\n\n"
+       return 1
+       fi
+
+      printf "\n⚠️  Soll '%s' wirklich komplett (System & Samba) gelöscht werden? " "$netuser"
+      read -r -p "👉 (ja/nein): " confirm1
+      if [[ "$confirm1" == "ja" ]]; then
+      # Zweite Abfrage (in einer Zeile)
+      printf "\n"
+      read -r -p "❓ Sind Sie absolut sicher? (ja/nein): " confirm2
+      if [[ "$confirm2" == "ja" ]]; then
+      printf "\n⚙️  Löschvorgang läuft - Bitte warten...\n\n"
+        # Zuerst aus Samba löschen, dann aus dem System
+        sudo smbpasswd -x "$netuser" &>/dev/null
+        sleep 2
+        sudo pdbedit -x -u "$netuser" &>/dev/null
+        sleep 2
+        sudo userdel "$netuser" 2>/dev/null
+        printf "\n✅ Der Benutzer '%s' wurde vollständig aus dem gesamten System entfernt.\n\n" "$netuser"
+        # --- Starte Samba-Server wieder  -----------------------
+        printf "\n🔄 Neustart Samba-Server...\n\n";
+        smbcontrol restart # Restart Samba-Server
+        # -------------------------------------------------------
+      else
+        # Antwort auf die ZWEITE Frage war nein
+        printf "\n👤 Der Benutzer '%s' wird *** nicht *** vollständig aus dem gesamten System entfernt.\n\n" "$netuser"
+      fi
+      else
+        # Antwort auf die ERSTE Frage war nein
+        printf "\n👤 Der Benutzer '%s' wird *** nicht *** vollständig aus dem gesamten System entfernt.\n\n" "$netuser"
+      fi
+      ;;
+
+    *) printf "\n⚠️ Ungültige Auswahl - Abbruch!\n\n"; return 1 ;;
+  esac
 }
 
 checksmbinstall() {
@@ -356,6 +518,9 @@ smbconfig() {
     export LC_ALL=$old_locale
     clear
 
+    # Benutzermanager starten
+    smbusermanager "$EXTRAUSER" || return 1
+
     # 4. Globale Arrays befüllen
     SAMBA_SHARES=(
         ["$sharename1"]="/home/${SAMBAMAINUSER}/shared1"
@@ -379,18 +544,25 @@ smbconfig() {
 EOF
 
     # 6. Ordner erstellen und smb.conf beschreiben
-    printf "💾 Schreibe zusätzlichen Benutzer [%s] in Samba Konfigurationsdatei %s\n\n\n" "$EXTRAUSER" "$CONFIG_FILE"
+    printf "\n💾 Schreibe zusätzlichen Benutzer [%s] in Samba Konfigurationsdatei %s\n\n" "$EXTRAUSER" "$CONFIG_FILE"
     for share in "${SHARE_ORDER[@]}"; do
         path="${SAMBA_SHARES[$share]}"
-
         if [ ! -d "$path" ]; then
-            printf "📂 Erstelle Ordner %s...\n\n" "$path"
+            printf "\n📂 Erstelle Ordner %s...\n" "$path"
             mkdir -p "$path"
-            printf "\n🔓 Öffne Schreibrechte für Samba-User (%s) und (%s)\n\n" "$SAMBAMAINUSER" "$EXTRAUSER"
-            sudo chown "$SAMBAMAINUSER:$SAMBAMAINUSER" "$path"
-            sudo chmod 0775 "$path"
-        fi
+            # --- Dateisystem-Check  ---
+            # Wir prüfen den Mountpoint des Pfades
+            local fs_type
+            fs_type=$(findmnt -n -o FSTYPE --target "$path" 2>/dev/null)
 
+            if [[ "$fs_type" == "exfat" || "$fs_type" == "vfat" || "$fs_type" == "ntfs" ]]; then
+                printf "\nℹ️  Dateisystem %s erkannt: Überspringe chown/chmod (Rechte werden über Mount-Optionen gesteuert).\n\n" "$fs_type"
+            else
+                printf "\n🔓 Öffne Schreibrechte für Samba-User (%s) und (%s)\n\n" "$SAMBAMAINUSER" "$EXTRAUSER"
+                sudo chown "$SAMBAMAINUSER:$SAMBAMAINUSER" "$path"
+                sudo chmod 0775 "$path"
+            fi
+        fi
         printf "💾 Schreibe Freigabename [%s] in Samba Konfigurationsdatei %s\n\n" "$share" "$CONFIG_FILE"
         cat <<EOF | sudo tee -a "$CONFIG_FILE" > /dev/null
 
@@ -621,7 +793,7 @@ setfstab() {
   # Nur wenn vorher nicht das dev formatiert wurde
   if [ "$2" != "nowfstab" ]; then
   printf "\nℹ️ Prüfe ob Partition noch gemountet ist...\n"
-  smbdismount "$dev" || return 1
+  smbdismount "$dev"
   else
   select_mountpoint || return 1
   fi
@@ -650,6 +822,18 @@ setfstab() {
     return 1
   fi
 
+  # Standard-Optionen für Linux-Dateisysteme (ext4)
+  mount_options="defaults,noatime,nofail"
+
+  # Wenn exfat, vfat (FAT32) oder ntfs erkannt wird:
+  if [[ "$fstype" =~ ^(exfat|vfat|ntfs)$ ]]; then
+    # Wir erzwingen uid=1000, gid=100 und volle Rechte (umask=000)
+    mount_options="defaults,noatime,nofail,uid=1000,gid=100,umask=000"
+
+    # Spezieller Zusatz für NTFS (verhindert ungültige Zeichen unter Windows)
+    [[ "$fstype" == "ntfs" ]] && mount_options+=",windows_names"
+  fi
+
   printf "ℹ️ UUID: %s\n" "$uuid"
   printf "ℹ️ Dateisystem: %s\n" "$fstype"
   printf "ℹ️ Mountpunkt: %s\n\n" "$MOUNTPOINT"
@@ -664,9 +848,19 @@ setfstab() {
   fi
 
   # Neuen Eintrag in fstab schreiben
-  echo "UUID=$uuid  $MOUNTPOINT  $fstype  defaults,noatime,nofail  0  2" | sudo tee -a /etc/fstab >/dev/null
+  # Standard-Optionen für Linux-Dateisysteme (ext4)
+  mount_options="defaults,noatime,nofail"
 
-  printf "\n✅ fstab-Eintrag erstellt.\n\n"
+  # Wenn exfat, vfat (FAT32) oder ntfs erkannt wird:
+  if [[ "$fstype" =~ ^(exfat|vfat|ntfs)$ ]]; then
+    # Wir erzwingen uid=1000, gid=100 und volle Rechte (umask=000)
+    mount_options="defaults,noatime,nofail,uid=1000,gid=100,umask=000"
+    # Spezieller Zusatz für NTFS (verhindert ungültige Zeichen unter Windows)
+    [[ "$fstype" == "ntfs" ]] && mount_options+=",windows_names"
+  fi
+  echo "UUID=$uuid  $MOUNTPOINT  $fstype  $mount_options  0  2" | sudo tee -a /etc/fstab >/dev/null
+
+  printf "\n✅ fstab-Eintrag wurde erstellt.\n\n"
   else
    printf "\n🔄 fstab-Eintrag wird ***nicht*** erstellt.\n\n"
   fi
@@ -719,13 +913,21 @@ smbmount() {
     fi
 
     if sudo mount "$part" "$MOUNTPOINT"; then
-      # ERST wenn der Mount steht, ändern wir die Rechte auf dem EXTERNEN Medium
-      printf "\n🔓 Öffne Schreibrechte für Samba-User (%s) und (%s)\n\n" "$SAMBAMAINUSER" "$EXTRAUSER"
-      sudo chown "$SAMBAMAINUSER":"$SAMBAMAINUSER" "$MOUNTPOINT"
-      sudo chmod 775 "$MOUNTPOINT"
+      # --- Dateisystem-Check ---
+      local current_fs
+      current_fs=$(findmnt -n -o FSTYPE --target "$MOUNTPOINT")
 
+      if [[ "$current_fs" =~ ^(exfat|vfat|ntfs)$ ]]; then # <--- NEU
+        printf "\nℹ️  Das Dateisystem %s  wurde erkannt.\n\n" "$current_fs"
+        printf "🔓 Rechte werden automatisch über die Mount-Optionen (fstab) gesteuert.\n\n"
+      else
       # Optional: Auch Unterordner anpassen, falls vorhanden (Achtung:  dauert bei vielen Dateien sehr lange --> Geduld)
-      # sudo chmod -R 775 "$MOUNTPOINT"
+      # sudo chmod -R 775 "$MOUNTPOINT" 
+        # Nur bei Linux-FS (ext4) chown/chmod ausführen
+        printf "\n🔓 Öffne Schreibrechte für Samba-User (%s) und (%s)\n\n" "$SAMBAMAINUSER" "$EXTRAUSER"
+        sudo chown "$SAMBAMAINUSER":"$SAMBAMAINUSER" "$MOUNTPOINT"
+        sudo chmod 775 "$MOUNTPOINT"
+      fi
 
       # --- Starte Samba-Server wieder  -----------------------
       printf "\n🔄 Neustart Samba-Server...\n\n";
@@ -780,10 +982,10 @@ smbdismount() {
   printf "\nℹ️ Dismount %s → Bitte warten..." "$MOUNTPOINT"
 
   if sudo umount "$MOUNTPOINT" 2>/dev/null || {
-       printf "\n⚠️ Dismount blockiert! Prozesse killen...\n\n";
+       printf "\n⚠️ Dismount blockiert! Prozesse kbeenden...\n\n";
        sudo fuser -km "$MOUNTPOINT" 2>/dev/null;
        sleep 1;
-       sudo umount "$MOUNTPOINT";
+       sudo umount -l "$MOUNTPOINT" 2>/dev/null;
      }; then
     printf "\n✅\n"
 
@@ -861,10 +1063,10 @@ smballpartdismount() {
 
     # Versuche Dismount (Erst Normal, dann mit fuser)
     if sudo umount "$part" 2>/dev/null || {
-         printf "\n⚠️ Dismount ist blockiert - Prozesse killen...\n\n";
+         printf "\n⚠️ Dismount ist blockiert - Prozesse beenden...\n\n";
          sudo fuser -km "$part" 2>/dev/null;
          sleep 2;
-         sudo umount "$part";
+         sudo umount -l "$part" 2>/dev/null;
        }; then
       printf "✅\n"
       ((count++))
@@ -926,9 +1128,9 @@ smballmountsdismount() {
 
     if sudo umount "$part" 2>/dev/null || {
          printf "\n⚠️ Dismount blockiert! Beende Prozesse auf %s...\n" "$part"
-         sudo fuser -km "$part" 2>/dev/null
+         sudo fuser -km "$part" 2>/dev/null;
          sleep 2
-         sudo umount "$part"
+         sudo umount -l "$part" 2>/dev/null;
        }; then
       printf "✅\n"
       ((count++))
