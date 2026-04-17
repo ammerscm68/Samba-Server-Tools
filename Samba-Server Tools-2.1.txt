@@ -2,7 +2,7 @@
 # Disk-Tools (sicherer Datenträger-Manager)
 #
 #              April 2026
-#   Version 2.0 von Mario Ammerschuber
+#   Version 2.1 von Mario Ammerschuber
 #
 # WARNNG: Kann Daten unwiderruflich löschen!
 # ------------------------------------------
