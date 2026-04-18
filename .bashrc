@@ -213,11 +213,14 @@ smbusermanager() {
     # Parameter-Modus oder Menü-Modus?
     if [[ -n "${netuser// /}" ]]; then
         # --- PARAMETER-MODUS ---
-        # Wenn ein Name beim Aufruf dabei ist, wollen wir IMMER hinzufügen.
-        # Falls der User schon da ist -> Abbruch (damit nichts überschrieben wird)
-        if id "$netuser" &>/dev/null; then
-         return 1
+        # Wir prüfen: Ist er schon in der SAMBA-Datenbank?
+        if sudo pdbedit -L -u "$netuser" &>/dev/null; then
+        # Wenn er schon Samba-User ist, dann wirklich Abbruch
+          return 1
         fi
+        # Wenn er NICHT in Samba ist (aber vielleicht in Linux), 
+        # lassen wir ihn durchgehen zu (Hinzufügen/Aktivieren)
+        printf "\n\n👤 Benutzer '%s' zum Samba-Server hinzufügen.\n\n\n" "$netuser"
         choice="1"
     else
   printf "\n👤 *** SAMBA BENUTZER-VERWALTUNG ***\n"
@@ -272,8 +275,8 @@ smbusermanager() {
         # Säuberung: Entfernt eventuelle Leerzeichen am Anfang/Ende
           netuser=$(echo "$netuser" | xargs)
 
-         if id "$netuser" &>/dev/null; then
-            printf "\n⚠️ Der Benutzer '%s' existiert bereits.\n\n" "$netuser"
+         if id "$netuser" &>/dev/null && sudo pdbedit -L -u "$netuser" &>/dev/null; then
+         printf "\n⚠️ Der Benutzer '%s' existiert bereits im System und in SAMBA.\n\n" "$netuser"
             return 1
          fi
 
@@ -299,11 +302,18 @@ smbusermanager() {
              [[ "$retry" != "ja" ]] && { printf "\n⚠️ Vorgang durch Benutzer abgebrochen.\n\n"; return 1; }
          done
 
-         printf "\n⚙️ Der Benutzer wird angelegt - Bitte warten...\n\n"
-         # Systemuser anlegen - ohne eigenes Login
-         sudo useradd -M -s /sbin/nologin "$netuser"
-         sleep 2
-         sudo usermod -aG users "$netuser"
+          printf "\n⚙️ Der Benutzer wird angelegt - Bitte warten...\n\n"
+            if id "$netuser" &>/dev/null; then
+            printf "\nℹ️ Benutzer '%s' existiert bereits im System. - Nur Aktivierung für Samba-Server...\n" "$netuser"
+            # Sicherstellen, dass er in der Gruppe 'users' ist
+            sudo usermod -aG users "$netuser"
+          else
+            printf "\n⚙️ Erstelle neuen System-User '%s'...\n\n" "$netuser"
+            sudo useradd -M -s /sbin/nologin "$netuser"
+            sleep 2
+            sudo usermod -aG users "$netuser"
+            sleep 2
+         fi
          sleep 2
 
          # Passwort an Samba übergeben (ohne erneute manuelle Abfrage)
@@ -432,14 +442,16 @@ checksmbinstall() {
     if [[ "$inst_answer" == "ja" ]]; then
       clear # Bildschirm löschen
       printf "\n⚙️ Starte Installation von 'Samba' - Bitte warten...\n\n\n"
-      sudo apt update && sudo apt upgrade && sudo apt install -y samba samba-common-bin
+      # sudo apt update && sudo apt upgrade && sudo apt install -y samba samba-common-bin
+      # *** Diese Umgebungsvariable unterdrückt alle interaktiven Dialoge ***
+      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" samba samba-common-bin
 
       # Nach Installation erneut prüfen
       if [[ -f "$smb_conf" ]]; then
         printf "\n\n✅ Samba wurde erfolgreich installiert.\n\n"
         printf "\n⌨️ Weiter mit beliebiger Taste...\n\n\n"
         read -n 1 -s -r
-        smbusermanager # Benutzermanager starten
+        smbusermanager "$SAMBAMAINUSER" # Benutzermanager starten und Mainuser hinzufügen
         return 0
       else
         printf "\n❌ Installation fehlgeschlagen. - Abbruch!\n\n"
@@ -455,8 +467,8 @@ checksmbinstall() {
   if [[ ! -s "$smb_conf" ]]; then
     printf "\n⚠️ WARNUNG: Die Datei %s ist leer!\n" "$smb_conf"
     printf "\n♻️ Es wird versucht die Konfiguration zu reparieren...\n\n"
-    # Hier könnte man eine Standard-Config wiederherstellen oder neu installieren
-    sudo apt update && sudo apt upgrade && sudo apt install --reinstall -y samba-common
+    # Hier wird SAMBA neu installiert (Achtung:  Nur für DEBIAN-Linux !!!)
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --reinstall -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" samba samba-common-bin
     return 1
   fi
 }
@@ -673,16 +685,16 @@ EOF
     printf "\n"
 
     if [[ "$fstab_antwort" == "ja" ]]; then
-        clear && echo -e "\n\n" && sudo lsblk -f  
+        clear && echo -e "\n\n" && sudo lsblk -f
         echo -e "\n\n\n"
         read -r -p "❓ Für welches Laufwerk soll der Eintrag erstellt werden? (z.B. /dev/sdb): " devchoice
         printf "\n"
 
         if [[ -n "$devchoice" ]]; then
-            printf "\nℹ️ Für weitere Eintragungen rufen Sie die Funktion 'setfstab' auf.\n"
-            printf "⌨️ Weiter mit beliebiger Taste...\n"
+            printf "\nℹ️ Für weitere Eintragungen rufen Sie die Funktion 'setfstab' auf.\n\n"
+            printf "\n⌨️ Weiter mit beliebiger Taste...\n\n"
             read -n 1 -s -r
-            setfstab "$devchoice" nowfstab || return 1 
+            setfstab "$devchoice" nowfstab || return 1
         else
             printf "\n⚠️ Abbruch: Kein Laufwerk angegeben.\n\n"
             return 1
