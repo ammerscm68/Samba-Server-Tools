@@ -4,11 +4,13 @@
   1.  smbusermanager  (Interactive creation or deletion of a user for Linux and SAMBA)
   2.  smbconfig   (Interactive configuration of the Samba-Server)
   3.  format /dev/sdb or sdb  (sdb is an example) <br>
-  4.  setfstab (/dev/sdb or sdb  (sdb is an example) <br>
-  5.  smbmount /dev/sdb or sdb (sdb is an example) <br>
-  6.  smbdismount /dev/sdb or sdb (sdb is an example - only dismount partition 1) <br>
-  7.  smballpartdismount /dev/sdb or sdb (sdb is an example - dismounts all partitions) <br>
-  8.  smbcontrol start (allowed parameters start, stop, restart) <br>
+  4.  samba-config  (Displays the current contents of the "smb.conf" file)
+  5.  getfstab  (Displays the current contents of the fstab file)
+  6.  setfstab (/dev/sdb or sdb  (sdb is an example) <br>
+  7.  smbmount /dev/sdb or sdb (sdb is an example) <br>
+  8.  smbdismount /dev/sdb or sdb (sdb is an example - only dismount partition 1) <br>
+  9.  smballpartdismount /dev/sdb or sdb (sdb is an example - dismounts all partitions) <br>
+ 10.  smbcontrol start (allowed parameters start, stop, restart) <br>
   <br>
   Many more simplified commands can be found in the aliases of the .bashrc file. <br>
   <br>
