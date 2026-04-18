@@ -6,7 +6,7 @@
   3.  format /dev/sdb or sdb  (sdb is an example) <br>
   4.  samba-config  (Displays the current contents of the "smb.conf" file)
   5.  getfstab  (Displays the current contents of the fstab file)
-  6.  setfstab (/dev/sdb or sdb  (sdb is an example) <br>
+  6.  setfstab /dev/sdb or sdb  (sdb is an example) <br>
   7.  smbmount /dev/sdb or sdb (sdb is an example) <br>
   8.  smbdismount /dev/sdb or sdb (sdb is an example - only dismount partition 1) <br>
   9.  smballpartdismount /dev/sdb or sdb (sdb is an example - dismounts all partitions) <br>
