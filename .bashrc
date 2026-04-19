@@ -166,7 +166,7 @@ fi
 # Disk-Tools (sicherer Datenträger-Manager)
 #
 #              April 2026
-#   Version 2.2 von Mario Ammerschuber
+#   Version 2.3 von Mario Ammerschuber
 #
 # WARNNG: Kann Daten unwiderruflich löschen!
 # ------------------------------------------
@@ -174,6 +174,7 @@ fi
 # ****** Globale Variablen deklaration ******
 # SAMBA-Server Hauptbenutzer
 SAMBAMAINUSER=${SAMBAMAINUSER:-$USER}
+
 # 2. Benutzer für Netzlaufwerkverbindungen
 EXTRAUSER=""
 
@@ -207,145 +208,155 @@ smbusermanager() {
     local netuser="$1" # Erster Parameter
     local choice
     local pass1 pass2 pass3 pass4
+    local MAX_LEN=75
 
     clear # Bildschirm leeren
 
     # Parameter-Modus oder Menü-Modus?
     if [[ -n "${netuser// /}" ]]; then
         # --- PARAMETER-MODUS ---
-        # Wir prüfen: Ist er schon in der SAMBA-Datenbank?
         if sudo pdbedit -L -u "$netuser" &>/dev/null; then
-        # Wenn er schon Samba-User ist, dann wirklich Abbruch
-          return 1
+          return 1 # Benutzer existiert schon - Keine Meldung ausgeben
         fi
-        # Wenn er NICHT in Samba ist (aber vielleicht in Linux), 
-        # lassen wir ihn durchgehen zu (Hinzufügen/Aktivieren)
         printf "\n\n👤 Benutzer '%s' zum Samba-Server hinzufügen.\n\n\n" "$netuser"
         choice="1"
     else
-  printf "\n👤 *** SAMBA BENUTZER-VERWALTUNG ***\n"
-  printf "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-  printf " 1) Benutzer hinzufügen\n"
-  printf " 2) Benutzer löschen\n"
-  printf " 3) Benutzer auflisten\n"
-  printf " 4) Benutzer Kennwort ändern\n"
-  printf " 5) Abbrechen\n"
-  printf "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-  read -r -p "Bitte wählen (1-5): " choice
+        # --- MENÜ-MODUS ---
+        printf "\n👤 *** SAMBA BENUTZER-VERWALTUNG ***\n"
+        printf "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        printf " 1) Benutzer hinzufügen\n"
+        printf " 2) Benutzer löschen\n"
+        printf " 3) Benutzer auflisten\n"
+        printf " 4) Benutzer Kennwort ändern\n"
+        printf " 5) Abbrechen\n"
+        printf "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        read -r -p "Bitte wählen (1-5): " choice
 
-  # --- Validierung der Auswahl ---
-   if [[ ! "$choice" =~ ^[1-5]$ ]]; then
-        printf "\n❌ Fehler: '%s' ist keine gültige Auswahl (1-5).\n\n" "$choice"
+        if [[ ! "$choice" =~ ^[1-5]$ ]]; then
+            printf "\n❌ Fehler: '%s' ist keine gültige Auswahl (1-5).\n\n" "$choice"
+            return 1
+        fi
+
+        if [[ "$choice" == "3" ]]; then
+            printf "\n📋 Registrierte Samba-Benutzer:\n"
+            printf "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            sudo pdbedit -L | awk -F: '{print "👤 " $1 " (UID: " $2 ")"}'
+            printf "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            return 0
+        elif [[ "$choice" == "5" || -z "$choice" ]]; then
+            printf "\n👤 Benutzerverwaltung abgebrochen.\n\n\n"
+            return 1
+        fi
+
+        printf "\n\n\n"
+        read -r -p "👤 Bitte Benutzernamen eingeben: " netuser
+    fi
+
+    # ==========================================================================
+    # ZENTRALE VALIDIERUNG (Gilt für Parameter UND Menü)
+    # ==========================================================================
+
+    # 1. Säuberung (Muss VOR den Checks passieren!) # <--- NEU
+    netuser=$(echo "$netuser" | xargs)
+
+    # 2. Leere Eingabe prüfen
+    if [[ -z "$netuser" ]]; then
+        printf "\n⚠️ Achtung: Kein Benutzername eingegeben - Abbruch!\n\n"
         return 1
     fi
 
-  # Sofort-Aktionen ohne Namensabfrage
-  if [[ "$choice" == "3" ]]; then
-    printf "\n📋 Registrierte Samba-Benutzer:\n"
-    printf "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-    # Filtert die Liste für eine schönere Anzeige
-    sudo pdbedit -L | awk -F: '{print "👤 " $1 " (UID: " $2 ")"}'
-    printf "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-    return 0
-  elif [[ "$choice" == "5" || -z "$choice" ]]; then
-    printf "\n👤 Benutzerverwaltung abgebrochen.\n\n\n"
-    return 1
-  fi
-
-  printf "\n\n\n"
-  read -r -p "👤 Bitte Benutzernamen eingeben: " netuser
-  fi
-
-
-  #  Leere Eingabe prüfen
-  if [[ -z "$netuser" ]]; then
-    printf "\n⚠️ Achtung: Kein Benutzername eingegeben - Abbruch!\n\n"
-    return 1
-  fi
-
-  # Kleinschreibung erzwingen
-     if [[ ! "$netuser" =~ ^[a-z0-9]+$ ]]; then
+    # 3. Kleinschreibung erzwingen
+    if [[ ! "$netuser" =~ ^[a-z0-9]+$ ]]; then
         printf "\n❌ Fehler: Nur Kleinbuchstaben und Zahlen sind erlaubt!\n\n"
-        printf "\n👉 Die Eingabe '%s' ist ungültig.\n\n" "$netuser"
+        printf "👉 Die Eingabe '%s' ist ungültig.\n\n" "$netuser"
         return 1
-     fi
+    fi
 
-  case "$choice" in
-    1) # --- BENUTZER HINZUFÜGEN ---
-        # Säuberung: Entfernt eventuelle Leerzeichen am Anfang/Ende
-          netuser=$(echo "$netuser" | xargs)
+    # 4. Check auf maximale Länge
+    if [[ ${#netuser} -gt "$MAX_LEN" ]]; then
+        printf "\n❌ Fehler: Der Benutzername ist mit %s Zeichen zu lang (max. %s).\n\n" "${#netuser}" "$MAX_LEN"
+        return 1
+    fi
 
-         if id "$netuser" &>/dev/null && sudo pdbedit -L -u "$netuser" &>/dev/null; then
-         printf "\n⚠️ Der Benutzer '%s' existiert bereits im System und in SAMBA.\n\n" "$netuser"
-            return 1
-         fi
+    # 5. Mindestens 3 Zeichen füe Benutzername erforderlich
+    if [[ ! "$netuser" =~ ^.{3,}$ ]]; then
+        printf "\n❌ Fehler: Es sind mindestens 3 Zeichen erforderlich. - Abbuch!\n\n"
+        return 1
+    fi
 
-         # --- Passwort-Validierungsschleife ---
-         while true; do
-             printf "\n🔐 Kennwort für '%s' festlegen:\n\n" "$netuser"
-             read -r -s -p "🔐 Neues Kennwort: " pass1
-             printf "\n"
-             read -r -s -p "🔐 Kennwort bestätigen: " pass2
-             printf "\n"
+    # ==========================================================================
 
-             if [[ -z "$pass1" ]]; then
-                  printf "❌ Fehler: Das Kennwort darf nicht leer sein!\n\n"
-             elif [[ ${#pass1} -lt 6 ]]; then
-                  printf "❌ Fehler: Kennwort zu kurz (mind. 6 Zeichen erforderlich)!\n\n"
-             elif [[ "$pass1" != "$pass2" ]]; then
-                 printf "❌ Fehler: Die Kennwörter stimmen nicht überein!\n\n"
-             else
-                 break # Passwort ist valide
-             fi
+    case "$choice" in
+        1) # --- BENUTZER HINZUFÜGEN ---
+           # Hinweis: netuser ist bereits gesäubert durch zentrale Validierung #
 
-             read -r -p "🔄 Jetzt erneut versuchen? (ja/nein): " retry
-             [[ "$retry" != "ja" ]] && { printf "\n⚠️ Vorgang durch Benutzer abgebrochen.\n\n"; return 1; }
-         done
+            # Wir prüfen zuerst, ob er schon in Samba ist
+            if sudo pdbedit -L -u "$netuser" &>/dev/null; then
+                printf "\n⚠️ Der Benutzer '%s' ist bereits ein Samba-Benutzer!\n\n" "$netuser"
+                printf "ℹ️ Nutze Punkt 4, um sein Passwort zu ändern.\n\n"
+                return 1
+            fi
 
-          printf "\n⚙️ Der Benutzer wird angelegt - Bitte warten...\n\n"
+            # --- Passwort-Validierungsschleife ---
+            while true; do
+                printf "\n🔐 Kennwort für '%s' festlegen:\n\n" "$netuser"
+                read -r -s -p "🔐 Kennwort: " pass1; printf "\n"
+                printf "\n"
+                read -r -s -p "🔐 Kennwort bestätigen: " pass2; printf "\n"
+                printf "\n"
+
+                if [[ -z "$pass1" ]]; then
+                    printf "❌ Fehler: Das Kennwort darf nicht leer sein!\n\n"
+                elif [[ ${#pass1} -lt 6 ]]; then
+                    printf "❌ Fehler: Kennwort zu kurz (mind. 6 Zeichen erforderlich)!\n\n"
+                elif [[ "$pass1" != "$pass2" ]]; then
+                    printf "❌ Fehler: Die Kennwörter stimmen nicht überein!\n\n"
+                else
+                    break # Passwort ist valide
+                fi
+
+                read -r -p "🔄 Jetzt erneut versuchen? (ja/nein): " retry
+                [[ "$retry" != "ja" ]] && { printf "\n⚠️ Vorgang durch Benutzer abgebrochen.\n\n"; return 1; }
+            done
+
+            printf "\n⚙️ Der Benutzer wird bearbeitet - Bitte warten...\n\n"
             if id "$netuser" &>/dev/null; then
-            printf "\nℹ️ Benutzer '%s' existiert bereits im System. - Nur Aktivierung für Samba-Server...\n" "$netuser"
-            # Sicherstellen, dass er in der Gruppe 'users' ist
-            sudo usermod -aG users "$netuser"
-          else
-            printf "\n⚙️ Erstelle neuen System-User '%s'...\n\n" "$netuser"
-            sudo useradd -M -s /sbin/nologin "$netuser"
+                printf "\nℹ️ Benutzer '%s' existiert bereits im System - Nur Aktivierung für Samba-Server...\n" "$netuser"
+                sudo usermod -aG users "$netuser"
+            else
+                printf "\n⚙️ Erstelle neuen System-User '%s'...\n\n" "$netuser"
+                sudo useradd -M -s /sbin/nologin "$netuser"
+                sleep 2
+                sudo usermod -aG users "$netuser"
+            fi
             sleep 2
-            sudo usermod -aG users "$netuser"
-            sleep 2
-         fi
-         sleep 2
 
-         # Passwort an Samba übergeben (ohne erneute manuelle Abfrage)
-         if ! (echo "$pass1"; echo "$pass1") | sudo smbpasswd -s -a "$netuser"; then
-           printf "\n❌ Fehler: Das Samba-Kennwort konnte nicht gesetzt werden.\n\n"
-           printf "⚙️ Bereinige System: Lösche Systembenutzer '%s' wieder...\n\n" "$netuser"
-           sudo userdel "$netuser" 2>/dev/null
-           # --- Starte Samba-Server neu ---------------------------
-           printf "\n🔄 Neustart Samba-Server...\n\n";
-           smbcontrol restart # Restart Samba-Server
-           # -------------------------------------------------------
-           return 1
-         fi
-         sudo smbpasswd -e "$netuser" > /dev/null
-         printf "\n✅ Der Samba-Benutzer '%s' wurde erfolgreich eingerichtet.\n\n" "$netuser"
-         # --- Starte Samba-Server neu --------------------------
-         printf "\n🔄 Neustart Samba-Server...\n\n";
-         smbcontrol restart # Restart Samba-Server
-         # -------------------------------------------------------
-         ;;
+            # Passwort an Samba übergeben
+            if ! (echo "$pass1"; echo "$pass1") | sudo smbpasswd -s -a "$netuser"; then
+                printf "\n❌ Fehler: Das Samba-Kennwort konnte nicht gesetzt werden.\n\n"
+                # Nur löschen, wenn er VORHER nicht existierte (Rollback) # <--- NEU (logischer Check)
+                # Hier könnte man eine Variable 'is_new_user' nutzen
+                printf "⚙️  Bitte prüfen Sie die Systemuser-Leichen manuell.\n"
+                smbcontrol restart
+                return 1
+            fi
+            sudo smbpasswd -e "$netuser" > /dev/null
+            printf "\n✅ Der Samba-Benutzer '%s' wurde erfolgreich eingerichtet.\n\n" "$netuser"
+            printf "\n🔄 Neustart Samba-Server...\n\n";
+            smbcontrol restart
+            ;;
 
-    4)  # --- BENUTZER PASSWORT ÄNDERN ---
-        # Säuberung: Entfernt eventuelle Leerzeichen am Anfang/Ende
-          netuser=$(echo "$netuser" | xargs)
+        4)  # --- BENUTZER PASSWORT ÄNDERN ---
+            # Säuberung: Entfernt eventuelle Leerzeichen am Anfang/Ende
+            netuser=$(echo "$netuser" | xargs)
 
-        # Erweiterte Prüfung: Existiert er in Linux ODER in Samba?
-         if [[ "$(id -un "$netuser" 2>/dev/null)" != "$netuser" ]]; then
-           printf "\n⚠️ Achtung: Der Benutzer '%s' existiert nicht - Abbruch!\n\n" "$netuser"
-           return 1
-         fi
+            # Erweiterte Prüfung: Existiert er in Linux ODER in Samba?
+            if [[ "$(id -un "$netuser" 2>/dev/null)" != "$netuser" ]]; then
+             printf "\n⚠️ Achtung: Der Benutzer '%s' existiert nicht - Abbruch!\n\n" "$netuser"
+              return 1
+            fi
 
-         while true; do
+             while true; do
              printf "\n🔐 Neues Kennwort für '%s' festlegen:\n\n" "$netuser"
              read -r -s -p "🔐 Neues Kennwort: " pass3
              printf "\n"
@@ -364,22 +375,22 @@ smbusermanager() {
 
              read -r -p "🔄 Jetzt erneut versuchen? (ja/nein): " retry
              [[ "$retry" != "ja" ]] && { printf "\n⚠️ Vorgang durch Benutzer abgebrochen.\n\n"; return 1; }
-         done
+            done
 
-         # 1. Samba-Passwort setzen
-         if ! (echo "$pass3"; echo "$pass3") | sudo smbpasswd -s -a "$netuser"; then
+            # 1. Samba-Passwort setzen
+            if ! (echo "$pass3"; echo "$pass3") | sudo smbpasswd -s -a "$netuser"; then
            printf "\n❌ Fehler: Das Samba-Kennwort konnte nicht gesetzt werden.\n\n"
            return 1
-         fi
-         sudo smbpasswd -e "$netuser" > /dev/null  # Sambakennwort setzen
+           fi
+           sudo smbpasswd -e "$netuser" > /dev/null  # Sambakennwort setzen
 
-         # 2. System-Passwort synchronisieren (NUR wenn es der Hauptuser $SAMBAMAINUSER ist)
-         if [[ "$netuser" == "$SAMBAMAINUSER" ]]; then
+           # 2. System-Passwort synchronisieren (NUR wenn es der Hauptuser $SAMBAMAINUSER ist)
+           if [[ "$netuser" == "$SAMBAMAINUSER" ]]; then
              printf "⚙️ Synchronisiere System-Kennwort für '%s'...\n" "$SAMBAMAINUSER"
              echo "$netuser:$pass3" | sudo chpasswd   # Linux-System Kennwort ändern nur bei Hauptbenutzer
-         fi
+           fi
 
-         printf "\n✅ Das Kennwort für '%s' wurde erfolgreich geändert.\n" "$netuser"
+           printf "\n✅ Das Kennwort für '%s' wurde erfolgreich geändert.\n" "$netuser"
          ;;
 
     2) # --- LÖSCHEN ---
@@ -392,19 +403,19 @@ smbusermanager() {
            return 1
          fi
 
-      # Sicherheits-Check: Ist es der aktuelle System-User?
-      if [[ "$netuser" == "$USER" ]]; then
-      printf "\n❌ Sicherheitssperre: Der System-Account ('%s') kann hier nicht gelöscht werden!\n\n" "$USER"
-      return 1
-      fi
+       # Sicherheits-Check: Ist es der aktuelle System-User?
+       if [[ "$netuser" == "$USER" ]]; then
+       printf "\n❌ Sicherheitssperre: Der System-Account ('%s') kann hier nicht gelöscht werden!\n\n" "$USER"
+       return 1
+       fi
 
-      printf "\n⚠️  Soll '%s' wirklich komplett (System & Samba) gelöscht werden? " "$netuser"
-      read -r -p "👉 (ja/nein): " delconfirm1
-      if [[ "$delconfirm1" == "ja" ]]; then
-      # Zweite Abfrage (in einer Zeile)
-      printf "\n"
-      read -r -p "❓ Sind Sie absolut sicher? (ja/nein): " delconfirm2
-      if [[ "$delconfirm2" == "ja" ]]; then
+       printf "\n⚠️ Soll '%s' wirklich komplett (System & Samba) gelöscht werden? " "$netuser"
+       read -r -p "👉 (ja/nein): " delconfirm1
+       if [[ "$delconfirm1" == "ja" ]]; then
+       # Zweite Abfrage (in einer Zeile)
+       printf "\n"
+       read -r -p "❓ Sind Sie absolut sicher? (ja/nein): " delconfirm2
+       if [[ "$delconfirm2" == "ja" ]]; then
         printf "\n⚙️  Löschvorgang läuft - Bitte warten...\n\n"
         # Zuerst aus Samba löschen, dann aus dem System
         sudo smbpasswd -x "$netuser" &>/dev/null
@@ -417,7 +428,7 @@ smbusermanager() {
         printf "\n🔄 Neustart Samba-Server...\n\n";
         smbcontrol restart # Restart Samba-Server
         # -------------------------------------------------------
-      else
+       else
         # Antwort auf die ZWEITE Frage war nein
         printf "\n👤 Der Benutzer '%s' wird *** nicht *** vollständig aus dem gesamten System entfernt.\n\n" "$netuser"
       fi
@@ -441,17 +452,41 @@ checksmbinstall() {
 
     if [[ "$inst_answer" == "ja" ]]; then
       clear # Bildschirm löschen
+
+      # --- Systemsprache auf Deutsch umstellen -------------------------------------------
+      if ! local_lang_de; then
+          printf "\n🚀 Das System muss neu starten, um die Spracheinstellungen zu laden.\n\n"
+          printf "\n🔄 Der Neustart erfolgt in 15 Sekunden (Abbruch mit Strg+C)...\n\n"
+          sleep 15
+          sudo reboot
+          return 1
+      fi
+      # -----------------------------------------------------------------------------------
+
       printf "\n⚙️ Starte Installation von 'Samba' - Bitte warten...\n\n\n"
-      # sudo apt update && sudo apt upgrade && sudo apt install -y samba samba-common-bin
-      # *** Diese Umgebungsvariable unterdrückt alle interaktiven Dialoge ***
+      # Vor der Installation das Systen aktualisieren
+      sudo dpkg --configure -a && sudo apt update && sudo apt --assume-yes upgrade && sudo apt --assume-yes dist-upgrade &&  sudo apt --assume-yes autoremove && sudo apt autoclean
+      sleep 5
+      # Diese Umgebungsvariable unterdrückt alle interaktiven Dialoge (Achtung:  Nur für DEBIAN-Linux !!!)
       sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" samba samba-common-bin
+      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" mc # Midnight Commander
 
       # Nach Installation erneut prüfen
       if [[ -f "$smb_conf" ]]; then
         printf "\n\n✅ Samba wurde erfolgreich installiert.\n\n"
         printf "\n⌨️ Weiter mit beliebiger Taste...\n\n\n"
         read -n 1 -s -r
-        smbusermanager "$SAMBAMAINUSER" # Benutzermanager starten und Mainuser hinzufügen
+        # automatisches System-Update einrichten ?
+        clear # Bildschirm leeren
+        printf "\n\n\n"
+        read -r -p "❓ Soll ein automatisches System-Update eingerichtet werden ? (ja/nein): " au_antwort
+        printf "\n"
+        if [ "$au_antwort" = "ja" ]; then
+        autoupdate -c
+        fi
+        printf "\n⌨️ Weiter mit beliebiger Taste...\n\n"
+        read -n 1 -s -r
+        smbusermanager "$SAMBAMAINUSER" # Benutzermanager starten
         return 0
       else
         printf "\n❌ Installation fehlgeschlagen. - Abbruch!\n\n"
@@ -467,6 +502,9 @@ checksmbinstall() {
   if [[ ! -s "$smb_conf" ]]; then
     printf "\n⚠️ WARNUNG: Die Datei %s ist leer!\n" "$smb_conf"
     printf "\n♻️ Es wird versucht die Konfiguration zu reparieren...\n\n"
+    # Vor der Installation das Systen aktualisieren
+    sudo dpkg --configure -a && sudo apt update && sudo apt --assume-yes upgrade && sudo apt --assume-yes dist-upgrade &&  sudo apt --assume-yes autoremove && sudo apt autoclean
+    sleep 5
     # Hier wird SAMBA neu installiert (Achtung:  Nur für DEBIAN-Linux !!!)
     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --reinstall -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" samba samba-common-bin
     return 1
@@ -477,7 +515,7 @@ loadsmbconfig() {
     # Prüfen ob "sudo" installiert ist
     checksudo || return 1
 
-   # Prüfen ob "Samba" installiert ist
+    # Prüfen ob "Samba" installiert ist
     checksmbinstall || return 1
 
     # Falls die Datei gar nicht existiert, direkt zur Prüfung/Erstellung springen
@@ -553,7 +591,7 @@ smbconfig() {
     # Prüfen ob "sudo" installiert ist
     checksudo || return 1
 
-   # Prüfen ob "Samba" installiert ist
+    # Prüfen ob "Samba" installiert ist
     checksmbinstall || return 1
 
     local sharename1 sharename2 sharename3 share path
@@ -602,20 +640,23 @@ smbconfig() {
     # --- Eingabe & Validierung Benutzer ---
     while true; do
         printf "\n"
-        printf "\n🌐 Zusätzlicher Benutzer (Enter für 'shareuser'): > "
+        printf "\n🌐 Zusätzlicher Benutzer nur für Netzwerkfreigabe (Enter für 'shareuser'): > "
         read -r EXTRAUSER
         EXTRAUSER=${EXTRAUSER:-shareuser}
-        [[ ! "$EXTRAUSER" =~ ^[a-zA-Z0-9]{3,}$ ]] && { printf "\n❌ Fehler: Mindestens 3 Zeichen, nur A-Z und 0-9 erlaubt.\n\n"; continue; }
+        [[ ! "$EXTRAUSER" =~ ^[a-z0-9]+$ ]] && { printf "\n❌ Fehler: Nur Kleinbuchstaben und Zahlen sind erlaubt!\n\n"; continue; }
+        [[ ! "$EXTRAUSER" =~ ^[a-z0-9]{3,}$ ]] && { printf "\n❌ Fehler: Mindestens 3 Zeichen, und nur a-z und 0-9 erlaubt.\n\n"; continue; }
         [[ ${#EXTRAUSER} -gt $MAX_LEN ]] && { printf "\n❌ Fehler: Der Name für den zusätzlichen Benutzer ist zu lang (max. $MAX_LEN).\n\n"; continue; }
         break
     done
 
     # Sprache wieder zurücksetzen für den Rest der Funktion
     export LC_ALL=$old_locale
-    clear
+    clear # Bildschirm leeren
 
-    # Benutzermanager starten
-    smbusermanager "$EXTRAUSER" || return 1
+    # Benutzermanager starten wenn ein Extra Netzwerkuser angegeben wurde
+    if [[ "$EXTRAUSER" != "shareuser" ]]; then
+    smbusermanager "$EXTRAUSER"
+    fi
 
     # 4. Globale Arrays befüllen
     SAMBA_SHARES=(
@@ -729,7 +770,7 @@ select_mountpoint() {
       MOUNTPOINT="${SAMBA_SHARES[$name]}"
       printf "\n✅ Folgende Freigabe wurde gewählt: %s\n" "$name"
       printf "\n📍 Zielpfad (Mountpoint): %s\n\n" "$MOUNTPOINT"
-      # Warten bis eine Taste gedrückt wird
+      # Warten bis eine Taste gedrückt wird 
       printf "\n⌨️ Weiter mit beliebiger Taste...\n"
       # -n 1 (ein Zeichen), -s (stumm), -r (keine Backslash-Interpretation)
       read -n 1 -s -r
@@ -843,7 +884,7 @@ format() {
 
   printf "${RED}WARNUNG:${RESET} Alle Daten auf %s werden gelöscht!\n\n" "$dev"
   read -r -p "❓ Letzte Chance: Wirklich alles löschen? (ja/nein): " bestaetigung2
-  [[ "$bestaetigung2" != "ja" ]] && { printf "\n⚠️ Abgebrochen.\n\n"; return 1; }
+  [[ "$bestaetigung2" != "ja" ]] && { printf "\n⚠️ Formatierung wurde abgebrochen.\n\n"; return 1; }
 
   printf "\n🔥 ${RED}Starte Formatierung...${RESET}\n\n"
   sudo wipefs -a "$dev"
@@ -920,12 +961,10 @@ setfstab() {
 
   # Standard-Optionen für Linux-Dateisysteme (ext4)
   mount_options="defaults,noatime,nofail"
-
   # Wenn exfat, vfat (FAT32) oder ntfs erkannt wird:
   if [[ "$fstype" =~ ^(exfat|vfat|ntfs)$ ]]; then
     # Wir erzwingen uid=1000, gid=100 und volle Rechte (umask=000)
     mount_options="defaults,noatime,nofail,uid=1000,gid=100,umask=000"
-
     # Spezieller Zusatz für NTFS (verhindert ungültige Zeichen unter Windows)
     [[ "$fstype" == "ntfs" ]] && mount_options+=",windows_names"
   fi
@@ -934,7 +973,7 @@ setfstab() {
   printf "ℹ️ Dateisystem: %s\n" "$fstype"
   printf "ℹ️ Mountpunkt: %s\n\n" "$MOUNTPOINT"
 
-  read -r -p "❓ fstab-Eintrag jetzt erstellen? (ja/nein): " antwort
+  read -r -p "❓fstab-Eintrag jetzt erstellen? (ja/nein): " antwort
   printf "\n"
   if [ "$antwort" = "ja" ]; then
   # Existierenden Eintrag für diesen Mountpoint entfernen (egal welche UUID dort stand)
@@ -944,16 +983,6 @@ setfstab() {
   fi
 
   # Neuen Eintrag in fstab schreiben
-  # Standard-Optionen für Linux-Dateisysteme (ext4)
-  mount_options="defaults,noatime,nofail"
-
-  # Wenn exfat, vfat (FAT32) oder ntfs erkannt wird:
-  if [[ "$fstype" =~ ^(exfat|vfat|ntfs)$ ]]; then
-    # Wir erzwingen uid=1000, gid=100 und volle Rechte (umask=000)
-    mount_options="defaults,noatime,nofail,uid=1000,gid=100,umask=000"
-    # Spezieller Zusatz für NTFS (verhindert ungültige Zeichen unter Windows)
-    [[ "$fstype" == "ntfs" ]] && mount_options+=",windows_names"
-  fi
   echo "UUID=$uuid  $MOUNTPOINT  $fstype  $mount_options  0  2" | sudo tee -a /etc/fstab >/dev/null
 
   printf "\n✅ fstab-Eintrag wurde erstellt.\n\n"
@@ -1007,8 +1036,7 @@ smbmount() {
     if mountpoint -q "$MOUNTPOINT"; then
        printf "\n⚠️ Hinweis: %s ist bereits belegt. Versuche trotzdem zu mounten...\n" "$MOUNTPOINT"
     fi
-
-    if sudo mount "$part" "$MOUNTPOINT"; then
+      if sudo mount "$part" "$MOUNTPOINT"; then
       # --- Dateisystem-Check ---
       local current_fs
       current_fs=$(findmnt -n -o FSTYPE --target "$MOUNTPOINT")
@@ -1078,7 +1106,7 @@ smbdismount() {
   printf "\nℹ️ Dismount %s → Bitte warten..." "$MOUNTPOINT"
 
   if sudo umount "$MOUNTPOINT" 2>/dev/null || {
-       printf "\n⚠️ Dismount blockiert! Prozesse kbeenden...\n\n";
+       printf "\n⚠️ Dismount blockiert! Prozesse beenden...\n\n";
        sudo fuser -km "$MOUNTPOINT" 2>/dev/null;
        sleep 1;
        sudo umount -l "$MOUNTPOINT" 2>/dev/null;
@@ -1158,7 +1186,7 @@ smballpartdismount() {
     printf "→ Dismount %s... " "$part"
 
     # Versuche Dismount (Erst Normal, dann mit fuser)
-    if sudo umount "$part" 2>/dev/null || {
+    if sudo umount -l "$part" 2>/dev/null || {
          printf "\n⚠️ Dismount ist blockiert - Prozesse beenden...\n\n";
          sudo fuser -km "$part" 2>/dev/null;
          sleep 2;
@@ -1306,8 +1334,123 @@ smbcontrol() {
   return 1
 }
 
+autoupdate() {
+    local script_path="/home/$USER/systemupdate.sh"
+    local log_path="/home/$USER/systemupdate.log"
+    local cron_entry="0 2 * * 2 $script_path"
+    local param="$1"
+
+    # --- OPTION: DEAKTIVIEREN (-d) ---
+    if [[ "$param" == "-d" ]]; then
+        if [[ ! -f "$script_path" ]]; then
+            printf "\n⚠️ Abbruch: Keine 'Autoupdate'-Datei '%s' gefunden.\n\n" "$script_path"
+            return 1
+        fi
+
+        read -r -p "❓ Soll das 'Autoupdate' wirklich deaktiviert werden? (ja/nein): " auconfirm
+        if [[ "$auconfirm" == "ja" ]]; then
+            # Datei löschen
+            rm "$script_path" > /dev/null && rm "$log_path" > /dev/null
+            # Cronjob aus crontab entfernen
+            (crontab -l 2>/dev/null | grep -vF "$script_path") | crontab -
+            printf "\n✅ Auto-Update wurde deaktiviert.\n\n"
+        else
+            printf "\n🔄 Der Vorgang wurde abgebrochen.\n\n"
+        fi
+        return 0
+    fi
+
+    # --- OPTION: ERSTELLEN (-c) ---
+    if [[ "$param" == "-c" ]]; then
+        if [[ -f "$script_path" ]]; then
+            read -r -p "⚠️  Das 'Autoupdate' existiert bereits. Überschreiben? (ja/nein): " overwrite
+            [[ "$overwrite" != "ja" ]] && { printf "\n⚠️ Der Vorgang wurde abgebrochen.\n\n"; return 1; }
+        fi
+
+        # Datei erstellen mit Here-Doc (Nutzt $USER dynamisch)
+        cat <<EOF > "$script_path"
+     #!/bin/bash
+rm $log_path
+date >$log_path 2>&1
+sudo apt-get update >>$log_path 2>&1
+sudo apt-get --assume-yes upgrade >>$log_path 2>&1
+sudo apt-get --assume-yes dist-upgrade >>$log_path 2>&1
+sudo apt-get --assume-yes upgrade --fix-missing >>$log_path 2>&1
+sudo apt-get --assume-yes autoremove >>$log_path 2>&1
+sudo apt-get autoclean >>$log_path 2>&1
+echo "***Neustart***" >>$log_path 2>&1
+sudo reboot
+EOF
+        # Ausführbar machen
+        chmod +x "$script_path"
+
+        # Cronjob eintragen (verhindert Dopplungen)
+        (crontab -l 2>/dev/null | grep -vF "$script_path"; echo "$cron_entry") | crontab -
+
+        printf "\n✅ Das 'Autoupdate' '%s'  wurde erstellt.\n\n" "$script_path"
+        printf "\n📅 Planung: Automatisches Systemupdate für jeden Dienstag um 02:00 Uhr wurde eingerichtet.\n\n"
+        return 0
+    fi
+
+    # Falscher oder kein Parameter
+    printf "\n⚠️ Ungültiger Parameter: - Nutzung von 'Autoupdate': autoupdate [-c | -d]\n\n"
+    printf "🔄  -c : Erstellen & Aktivieren\n"
+    printf "🔄  -d : Deaktivieren & Löschen\n\n"
+}
+
+local_lang_de() {
+      # --- PRÜFUNG: Ist Deutsch schon aktiv? ---
+      local current_kbd
+      local kbd_check=0
+      local lang_check=0
+
+      # Prüfen ob Layout "de" in der Datei steht
+      if grep -q 'XKBLAYOUT="de"' /etc/default/keyboard 2>/dev/null; then
+          kbd_check=1
+      fi
+
+      # Prüfen ob LANG auf de_DE gesetzt ist
+      if [[ "$LANG" == "de_DE.UTF-8" ]]; then
+          lang_check=1
+      fi
+
+      # Nur umstellen, wenn etwas fehlt
+      if [[ $kbd_check -eq 0 || $lang_check -eq 0 ]]; then
+          printf "\n🌐 Stelle Systemsprache und Tastatur auf Deutsch um - Bitte warten...\n\n\n"
+          # Hier dein cat <<EOF Block...
+          cat <<EOF | sudo tee /etc/default/keyboard > /dev/null
+XKBMODEL="pc105"
+XKBLAYOUT="de"
+XKBVARIANT=""
+XKBOPTIONS=""
+BACKSPACE="guess"
+EOF
+          # Erst alle alten de_DE Einträge löschen (verhindert Dubletten und Rauten-Probleme)
+          sudo sed -i '/de_DE.UTF-8/d' /etc/locale.gen
+          # Die saubere Zeile am Ende der Datei anhängen
+          echo "de_DE.UTF-8 UTF-8" | sudo tee -a /etc/locale.gen > /dev/null
+          # Standard-Sprache für das System setzen
+          echo "LANG=de_DE.UTF-8" | sudo tee /etc/default/locale > /dev/null
+          # Generiert die Sprachunterstützung
+          sudo locale-gen de_DE.UTF-8 > /dev/null 2>&1
+          # Registriert die Sprache offiziell im System
+          sudo update-locale LANG=de_DE.UTF-8
+          # Aktiviert die Tastatur sofort
+          sudo loadkeys de 2>/dev/null
+          sudo setupcon > /dev/null 2>&1
+          if [[ "$(cat /etc/timezone 2>/dev/null)" != "Europe/Berlin" ]]; then
+	  sudo timedatectl set-timezone Europe/Berlin 2>/dev/null
+          fi
+          printf "\n✅ Systemsprache und Tastatur erfolgreich auf Deutsch umgestellt.\n"
+          return 1
+      else
+          printf "\nℹ️ Systemsprache und Tastatur sind bereits auf Deutsch eingestellt.\n"
+          return 0
+      fi
+}
+
 # Funktion beim start der .bashrc Datei AUFRUFEN (muss ganz unten stehen)
-loadsmbconfig  # existierende Freigaben laden oder 1. Konfuguration
+loadsmbconfig  # existierende Freigaben laden
 
 
 # Hinweis:
