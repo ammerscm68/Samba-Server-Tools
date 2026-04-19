@@ -11,9 +11,12 @@
   8.  smbdismount /dev/sdb or sdb (sdb is an example - only dismount partition 1) <br>
   9.  smballpartdismount /dev/sdb or sdb (sdb is an example - dismounts all partitions) <br>
  10.  smbcontrol start (allowed parameters start, stop, restart) <br>
+ 11.  autoupdate -c | -d  (Parameter [-c] = create autoupdate - [-d] = delete autoupdate
   <br>
   Many more simplified commands can be found in the aliases of the .bashrc file. <br>
   <br>
+  *********************************************************************************************************<br>
+  Version 2.3 - A new feature has been added, named: "autoupdate" - Automatic Update Raspberry PI OS. <br>
   *********************************************************************************************************<br>
   Version 2.2 - Interactive User Manager - add a new Menu entry. SAMBA installation now interactive <br>
   *********************************************************************************************************<br>
