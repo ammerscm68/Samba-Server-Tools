@@ -1,6 +1,5 @@
-# ~/.bashrc: executed by bash(1) for non-login shells.
-# see /usr/share/doc/bash/examples/startup-files (in the package bash-doc)
-# for examples
+# ~/.bashrc: executed by bash(1) for non-login shells. see /usr/share/doc/bash/examples/startup-files (in the 
+# package bash-doc) for examples
 
 # If not running interactively, don't do anything
 case $- in
@@ -166,7 +165,7 @@ fi
 # Disk-Tools (sicherer Datenträger-Manager)
 #
 #              April 2026
-#   Version 2.3 von Mario Ammerschuber
+#   Version 2.4 von Mario Ammerschuber
 #
 # WARNNG: Kann Daten unwiderruflich löschen!
 # ------------------------------------------
@@ -193,9 +192,190 @@ checksudo() {
 # Prüfen ob "Sudo" installiert ist
     if ! command -v sudo &> /dev/null; then
     printf "\n❌ Fehler: 'sudo' ist nicht installiert.\n\n"
-    printf "\n📍 Bitte melden Sie sich als 'Root' an und installieren es mit: > apt update && apt upgrade && apt install sudo\n\n"
+    printf "\n📍Bitte melden Sie sich als 'Root' an und installieren es mit: > apt update && apt upgrade && apt install sudo\n\n"
     return 1
   fi
+}
+
+smbcheckosversion() {
+    # 1. Die reine Versionsnummer extrahieren (z.B. 11 oder 12 u.s.w)
+    # tr -d '"' entfernt eventuelle Anführungszeichen um die Zahl
+    local os_ver
+    os_ver=$(grep "^VERSION_ID=" /etc/os-release | cut -d= -f2 | tr -d '"')
+
+    printf "\n🔍 Prüfe Betiebssystem Version...\n"
+
+    # Falls die Variable leer ist (Sicherheitscheck)
+    if [[ -z "$os_ver" ]]; then
+        printf "\n❌ Fehler: Die OS-Version konnte nicht ermittelt werden. - Abbruch!\n\n"
+        return 1
+    fi
+
+    # 2. Vergleich: muss Version 12 (Bookworm) oder höher sein
+    if (( os_ver >= 12 )); then
+        printf "\n✅ Systemversion %s erkannt (OK).\n\n" "$os_ver"
+        return 0
+    else
+        printf "\n❌ Fehler: Diese Funktionssammlung benötigt mindestens Version 12 (Bookworm) des Betriebssystems.\n\n"
+        printf "\n⚠️ Deine aktuelle Version ist: %s\n\n" "$os_ver"
+        printf "\n🚫 Leider müssen wir an dieser Stelle abbrechen.\n\n"
+        return 1
+    fi
+}
+
+smbsetstaticip() {
+    # Prüfen ob "sudo" installiert ist
+    checksudo || return 1
+
+    local skip_file="/home/$USER/.skip_ip_check"
+    local sparam="$1"
+
+    # --- Parameter-Check (Silent) ---
+    if [[ "$1" == "-clear" ]]; then
+    rm -f "$skip_file" 2>/dev/null
+    fi
+
+    # 1. Aktives Interface ermitteln (Sprachneutral)
+    local interface
+    interface=$(nmcli -t -f DEVICE,STATE device status | grep -E ":connected|:verbunden" | head -n 1 | cut -d: -f1)
+
+    if [[ -z "$interface" ]]; then
+        printf "\n❌ Fehler: Es wurde kein verbundenes Netzwerk-Interface gefunden! - Abbruch!\n\n"
+        return 1
+    fi
+
+    # 2. Den Namen der aktiven Verbindung (Connection) finden
+    local conn_name
+    conn_name=$(nmcli -t -f NAME,DEVICE connection show --active | grep ":$interface" | cut -d: -f1)
+
+    if [[ -z "$conn_name" ]]; then
+        printf "\n❌ Fehler: Es wurde kein aktives Profil für %s gefunden. - Abbruch!\n\n" "$interface"
+        return 1
+    fi
+
+    # 3. Methode über die CONNECTION abfragen
+    local method
+    method=$(nmcli -g ipv4.method connection show "$conn_name")
+
+    # 4. Wir holen die IP auch über die CONNECTION
+    local current_ip=$(nmcli -g ip4.address connection show "$conn_name" | cut -d/ -f1)
+
+    # --- Warnung bei WLAN-Betrieb ---
+    if [[ "$interface" == w* ]]; then
+        printf "\n⚠️ WARNUNG: Der Samba-Server wird über WLAN (%s) betrieben!\n\n" "$interface"
+        printf "Für maximale Stabilität und Geschwindigkeit wird ein LAN-Kabel empfohlen.\n\n"
+        read -r -p "❓ Trotzdem fortfahren? (ja/nein): " wlan_confirm
+        [[ "$wlan_confirm" != "ja" ]] && { printf "\n🔄 Abbruch durch Benutzer.\n\n"; return 1; }
+    fi
+
+    if [[ "$method" == "manual" ]]; then
+        # printf "\n✅ Das Interface [%s] nutzt bereits eine STATISCHE IP-Adresse.\n\n" "$interface"
+        return 0
+    fi
+
+    # Wenn die Flag-Datei existiert, überspringen wir die Abfrage
+    if [[ -f "$skip_file" ]]; then
+        return 0  # Benutzer hatte sich für DHCP entschieden
+    fi
+
+    # 3. Umstellung anbieten
+    printf "\n🌐 Aktueller Status für [%s]: DHCP (Dynamische IP-Adresse)\n\n" "$interface"
+    read -r -p "❓ Möchten Sie jetzt auf eine STATISCHE IP-Adresse umstellen? (ja/nein/nie): " sip_antwort
+
+    if [[ "$sip_antwort" == "ja" ]]; then
+        clear # Bildschirm leeren
+        printf "\n\n\n--- Konfiguration der statischen IP-Adresse ---\n"
+        printf "\nℹ️  Hinweis: Wählen Sie eine IP-Adresse außerhalb des DHCP-Pools.\n\n"
+        printf "      (z.Bsp. FritzBox meist: .2 bis .19 oder .201 bis .253)\n\n"
+
+        local base_ip=$(echo "$current_ip" | cut -d. -f1-3)
+
+        # Gateway über CONNECTION abfragen, nicht über DEVICE
+        local current_gw=$(nmcli -g ipv4.gateway connection show "$conn_name")
+
+        # --- Interne Validierungs-Funktion ---
+        validate_ip() {
+            local ip=$1
+            [[ ! "$ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] && return 1
+            local IFS='.'
+            local oct=($ip)
+            for i in {0..3}; do
+                local val=$((10#${oct[$i]}))
+                [[ $val -lt 0 || $val -gt 255 ]] && return 1
+            done
+            local last=$((10#${oct[3]}))
+            [[ $last -eq 0 || $last -eq 255 ]] && return 1
+            return 0
+        }
+
+        while true; do
+            read -r -p "👉 statische IP-Adresse [Vorschlag: ${base_ip}.212]: " new_ip
+            new_ip=${new_ip:-"${base_ip}.212"}
+
+            if ! validate_ip "$new_ip"; then
+                printf "\n❌ Fehler: '%s' ist keine gültige IP-Adresse (0-254, Ende nicht 0/255)!\n\n" "$new_ip"
+                continue
+            fi
+
+            printf "\n🔍 Prüfe ob IP-Adresse %s frei ist...\n\n" "$new_ip"
+            if ping -c 1 -W 1 "$new_ip" >/dev/null 2>&1; then
+                printf "\n❌ BELEGT: Ein anderes Gerät nutzt bereits diese IP-Adresse!\n\n"
+            else
+                break
+            fi
+        done
+
+        # --- GATEWAY IP-Adresse ---
+        local new_gw
+        local def_gw="${current_gw:-${base_ip}.1}"
+        while true; do
+            read -r -p "👉 Gateway IP-Adresse (Router) - [Vorschlag: $def_gw]: " new_gw
+            new_gw=${new_gw:-"$def_gw"}
+            # KORREKTUR: ! für "Wenn NICHT gültig", dann Fehlermeldung
+            if ! validate_ip "$new_gw"; then
+                printf "\n❌ Fehler: '%s' ist keine gültige Gateway IP-Adresse!\n\n" "$new_gw"
+            else
+                break
+            fi
+        done
+
+        # --- DNS IP-Adresse ---
+        local new_dns
+        while true; do
+            printf "\n\n"
+            read -r -p "👉 DNS-Server IP-Adresse - [Vorschlag: $new_gw]: " new_dns
+            new_dns=${new_dns:-$new_gw}
+            # KORREKTUR: ! für "Wenn NICHT gültig", dann Fehlermeldung
+            if ! validate_ip "$new_dns"; then
+                printf "\n❌ Fehler: '%s' ist keine gültige DNS IP-Adresse!\n\n" "$new_dns"
+            else
+                break
+            fi
+        done
+
+        # --- UMSETZUNG ---
+        clear # Bildschirm leeren
+        printf "\n\n⚙️ Einstellungen für [%s] werden angewendet...\n\n" "$conn_name"
+
+        sudo nmcli connection modify "$conn_name" \
+            ipv4.addresses "${new_ip}/24" \
+            ipv4.gateway "$new_gw" \
+            ipv4.dns "$new_dns" \
+            ipv4.method manual
+
+        rm -f "$skip_file" 2>/dev/null
+        printf "\n✅ Statische IP-Adresse erfolgreich konfiguriert.\n\n"
+        printf "\n🚀 Neustart in 15 Sekunden, um auf die neue IP-Adresse umzustellen - Bitte warten...\n\n"
+        sleep 15
+        sudo reboot
+        exit 0
+
+    elif [[ "$sip_antwort" == "nie" ]]; then
+        printf "SAMBA-Server - Benutzer hat sich am $(date +'%d.%m.%Y um %H:%M') für eine DHCP-Adresse entschieden!" > "$skip_file"
+        printf "\n✅ Die IP-Adresse des SAMBA-Server bleibt auf DHCP Konfiguration. (Aktuell: %s)\n\n" "$current_ip"
+    else
+        printf "\n🔄 Abbruch. Die IP-Adresse bleibt vorerst auf DHCP. (Aktuell: %s)\n\n" "$current_ip"
+    fi
 }
 
 smbusermanager() {
@@ -253,7 +433,7 @@ smbusermanager() {
     fi
 
     # ==========================================================================
-    # ZENTRALE VALIDIERUNG (Gilt für Parameter UND Menü)
+    # ZENTRALE VALIDIERUNG (Gilt für Parameter UND Menü) 
     # ==========================================================================
 
     # 1. Säuberung (Muss VOR den Checks passieren!) # <--- NEU
@@ -300,9 +480,9 @@ smbusermanager() {
             # --- Passwort-Validierungsschleife ---
             while true; do
                 printf "\n🔐 Kennwort für '%s' festlegen:\n\n" "$netuser"
-                read -r -s -p "🔐 Kennwort: " pass1; printf "\n"
+                read -r -s -p "🔐 Kennwort: " pass1; 
                 printf "\n"
-                read -r -s -p "🔐 Kennwort bestätigen: " pass2; printf "\n"
+                read -r -s -p "🔐 Kennwort bestätigen: " pass2; 
                 printf "\n"
 
                 if [[ -z "$pass1" ]]; then
@@ -443,6 +623,15 @@ smbusermanager() {
 }
 
 checksmbinstall() {
+   # Prüfen ob "sudo" installiert ist
+   checksudo || return 1
+
+   # Prüfen ob mindestens "Bookworm" installiert ist
+   smbcheckosversion || return 1
+
+   # Vor der Installation Fragen ob auf eine statische IP-Adresse umgestellt werden soll wenn noch DHCP
+   smbsetstaticip || return 1
+
   local smb_conf="/etc/samba/smb.conf"
 
   # 1. Existiert die Datei? Falls nein -> Installation anbieten
@@ -453,9 +642,9 @@ checksmbinstall() {
     if [[ "$inst_answer" == "ja" ]]; then
       clear # Bildschirm löschen
 
-      # --- Systemsprache auf Deutsch umstellen -------------------------------------------
+     # --- Systemsprache auf Deutsch umstellen -------------------------------------------
       if ! local_lang_de; then
-          printf "\n🚀 Das System muss neu starten, um die Spracheinstellungen zu laden.\n\n"
+          printf "\n🚀 Das System muss neu starten, um die Spracheinstellungen neu zu laden.\n\n"
           printf "\n🔄 Der Neustart erfolgt in 15 Sekunden (Abbruch mit Strg+C)...\n\n"
           sleep 15
           sudo reboot
@@ -468,13 +657,15 @@ checksmbinstall() {
       sudo dpkg --configure -a && sudo apt update && sudo apt --assume-yes upgrade && sudo apt --assume-yes dist-upgrade &&  sudo apt --assume-yes autoremove && sudo apt autoclean
       sleep 5
       # Diese Umgebungsvariable unterdrückt alle interaktiven Dialoge (Achtung:  Nur für DEBIAN-Linux !!!)
-      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" samba samba-common-bin
+      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" samba samba-common-bin  # Samba-Srver istallieren
       sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" mc # Midnight Commander
+      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" fail2ban # fail2ban installieren
+      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" network-Manager # Netzwerkmanager installieren
 
       # Nach Installation erneut prüfen
       if [[ -f "$smb_conf" ]]; then
         printf "\n\n✅ Samba wurde erfolgreich installiert.\n\n"
-        printf "\n⌨️ Weiter mit beliebiger Taste...\n\n\n"
+        printf "\n⌨️ Weiter mit beliebiger Taste...\n\n"
         read -n 1 -s -r
         # automatisches System-Update einrichten ?
         clear # Bildschirm leeren
@@ -484,6 +675,7 @@ checksmbinstall() {
         if [ "$au_antwort" = "ja" ]; then
         autoupdate -c
         fi
+        printf "\n👤 Starte *** SAMBA BENUTZER-VERWALTUNG ***\n\n"
         printf "\n⌨️ Weiter mit beliebiger Taste...\n\n"
         read -n 1 -s -r
         smbusermanager "$SAMBAMAINUSER" # Benutzermanager starten
@@ -502,10 +694,10 @@ checksmbinstall() {
   if [[ ! -s "$smb_conf" ]]; then
     printf "\n⚠️ WARNUNG: Die Datei %s ist leer!\n" "$smb_conf"
     printf "\n♻️ Es wird versucht die Konfiguration zu reparieren...\n\n"
+    # Hier wird SAMBA neu installiert (Achtung:  Nur für DEBIAN-Linux !!!)
     # Vor der Installation das Systen aktualisieren
     sudo dpkg --configure -a && sudo apt update && sudo apt --assume-yes upgrade && sudo apt --assume-yes dist-upgrade &&  sudo apt --assume-yes autoremove && sudo apt autoclean
     sleep 5
-    # Hier wird SAMBA neu installiert (Achtung:  Nur für DEBIAN-Linux !!!)
     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --reinstall -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" samba samba-common-bin
     return 1
   fi
@@ -557,7 +749,7 @@ loadsmbconfig() {
         fi
         return 0
     else
-        checksmbconfig
+        checksmbconfig # SAMBA Konfiguration prüfen
     fi
 }
 
@@ -573,7 +765,7 @@ checksmbconfig() {
     printf "\n⚠️ Achtung: Es wurden noch keine Samba-Freigaben konfiguriert.\n\n"
     printf "\n🌐 Bitte führen Sie zuerst 'smbconfig' aus.\n\n\n"
 
-    read -r -p "❓ Möchten Sie jetzt die Samba-Konfiguration starten ? (ja/nein): " bestaetigung2
+    read -r -p "❓Möchten Sie jetzt die Samba-Konfiguration starten ? (ja/nein): " bestaetigung2
     printf "\n"
      if [ "$bestaetigung2" != "ja" ]; then
      printf "\n⚠️ Vorgang durch Benutzer abgebrochen.\n\n"
@@ -693,7 +885,7 @@ EOF
             fs_type=$(findmnt -n -o FSTYPE --target "$path" 2>/dev/null)
 
             if [[ "$fs_type" == "exfat" || "$fs_type" == "vfat" || "$fs_type" == "ntfs" ]]; then
-                printf "\nℹ️  Dateisystem %s erkannt: Überspringe chown/chmod (Rechte werden über Mount-Optionen gesteuert).\n\n" "$fs_type"
+                printf "\nℹ️  ateisystem %s erkannt: Überspringe chown/chmod (Rechte werden über Mount-Optionen gesteuert).\n\n" "$fs_type"
             else
                 printf "\n🔓 Öffne Schreibrechte für Samba-User (%s) und (%s)\n\n" "$SAMBAMAINUSER" "$EXTRAUSER"
                 sudo chown "$SAMBAMAINUSER:$SAMBAMAINUSER" "$path"
@@ -1363,13 +1555,14 @@ autoupdate() {
     # --- OPTION: ERSTELLEN (-c) ---
     if [[ "$param" == "-c" ]]; then
         if [[ -f "$script_path" ]]; then
-            read -r -p "⚠️  Das 'Autoupdate' existiert bereits. Überschreiben? (ja/nein): " overwrite
+            printf "\n\n"
+            read -r -p "⚠️ Das 'Autoupdate' existiert bereits. Überschreiben? (ja/nein): " overwrite
             [[ "$overwrite" != "ja" ]] && { printf "\n⚠️ Der Vorgang wurde abgebrochen.\n\n"; return 1; }
         fi
 
         # Datei erstellen mit Here-Doc (Nutzt $USER dynamisch)
         cat <<EOF > "$script_path"
-     #!/bin/bash
+#!/bin/bash
 rm $log_path
 date >$log_path 2>&1
 sudo apt-get update >>$log_path 2>&1
@@ -1384,9 +1577,17 @@ EOF
         # Ausführbar machen
         chmod +x "$script_path"
 
-        # Cronjob eintragen (verhindert Dopplungen)
-        (crontab -l 2>/dev/null | grep -vF "$script_path"; echo "$cron_entry") | crontab -
+        # --- NEUE CRONTAB HIER ---
+        local current_cron
+        current_cron=$(crontab -l 2>/dev/null)
 
+        if [[ -z "$current_cron" ]]; then
+            # Crontab ist leer: Header + neuen Job einfügen
+            printf "%s\n\n%s\n" "$cron_header" "$cron_entry" | crontab -
+        else
+            # Crontab existiert: Alten Job entfernen, Header behalten, neuen Job anhängen
+            (echo "$current_cron" | grep -vF "$script_path"; echo "$cron_entry") | crontab -
+        fi
         printf "\n✅ Das 'Autoupdate' '%s'  wurde erstellt.\n\n" "$script_path"
         printf "\n📅 Planung: Automatisches Systemupdate für jeden Dienstag um 02:00 Uhr wurde eingerichtet.\n\n"
         return 0
@@ -1439,7 +1640,7 @@ EOF
           sudo loadkeys de 2>/dev/null
           sudo setupcon > /dev/null 2>&1
           if [[ "$(cat /etc/timezone 2>/dev/null)" != "Europe/Berlin" ]]; then
-	  sudo timedatectl set-timezone Europe/Berlin 2>/dev/null
+          sudo timedatectl set-timezone Europe/Berlin 2>/dev/null
           fi
           printf "\n✅ Systemsprache und Tastatur erfolgreich auf Deutsch umgestellt.\n"
           return 1
