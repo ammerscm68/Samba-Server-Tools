@@ -227,6 +227,9 @@ smbsetstaticip() {
     # Prüfen ob "sudo" installiert ist
     checksudo || return 1
 
+    # Betriebssystemversion prüfen
+    smbcheckosversion || return 1
+
     local skip_file="/home/$USER/.skip_ip_check"
     local sparam="$1"
 
