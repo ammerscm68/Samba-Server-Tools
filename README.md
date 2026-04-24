@@ -11,11 +11,14 @@
   8.  smbdismount /dev/sdb or sdb (sdb is an example - only dismount partition 1) <br>
   9.  smballpartdismount /dev/sdb or sdb (sdb is an example - dismounts all partitions) <br>
  10.  smbcontrol start (allowed parameters start, stop, restart) <br>
- 11.  autoupdate -c | -d  (Parameter [-c] = create autoupdate - [-d] = delete autoupdate
- 12.  smbsetstaticip (interactively switch to a static IP address)
+ 11.  autoupdate -c | -d  (Parameter [-c] = create autoupdate - [-d] = delete autoupdate <br>
+ 12.  smbsetstaticip (interactively switch to a static IP address) <br>
+ 13.  webmininstalll (interactive Installation of the graphical user Interface "Webmin") <br>
   <br>
   Many more simplified commands can be found in the aliases of the .bashrc file. <br>
   <br>
+  **************************************************************************************************************<br>
+  Version 2.5 - interactive Installation of the graphical user Interface "Webmin" <br>
   **************************************************************************************************************<br>
   Version 2.4 - Upon request, it is now possible to interactively switch to a static IP address. <br>
   **************************************************************************************************************<br>
