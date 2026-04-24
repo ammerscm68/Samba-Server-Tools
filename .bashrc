@@ -1,4 +1,4 @@
-# ~/.bashrc: executed by bash(1) for non-login shells. see /usr/share/doc/bash/examples/startup-files (in the 
+# ~/.bashrc: executed by bash(1) for non-login shells. see /usr/share/doc/bash/examples/startup-files (in the
 # package bash-doc) for examples
 
 # If not running interactively, don't do anything
@@ -165,7 +165,7 @@ fi
 # Disk-Tools (sicherer Datenträger-Manager)
 #
 #              April 2026
-#   Version 2.4 von Mario Ammerschuber
+#   Version 2.5 von Mario Ammerschuber
 #
 # WARNNG: Kann Daten unwiderruflich löschen!
 # ------------------------------------------
@@ -227,7 +227,7 @@ smbsetstaticip() {
     # Prüfen ob "sudo" installiert ist
     checksudo || return 1
 
-    # Betriebssystemversion prüfen
+    # Betriebssystem Version prüfen
     smbcheckosversion || return 1
 
     local skip_file="/home/$USER/.skip_ip_check"
@@ -629,9 +629,6 @@ checksmbinstall() {
    # Prüfen ob "sudo" installiert ist
    checksudo || return 1
 
-   # Prüfen ob mindestens "Bookworm" installiert ist
-   smbcheckosversion || return 1
-
    # Vor der Installation Fragen ob auf eine statische IP-Adresse umgestellt werden soll wenn noch DHCP
    smbsetstaticip || return 1
 
@@ -670,6 +667,10 @@ checksmbinstall() {
         printf "\n\n✅ Samba wurde erfolgreich installiert.\n\n"
         printf "\n⌨️ Weiter mit beliebiger Taste...\n\n"
         read -n 1 -s -r
+
+       # Fragen ob "Webmin" installiert werden soll wenn noch nicht installiert
+       webmininstall install
+
         # automatisches System-Update einrichten ?
         clear # Bildschirm leeren
         printf "\n\n\n"
@@ -1651,6 +1652,80 @@ EOF
           printf "\nℹ️ Systemsprache und Tastatur sind bereits auf Deutsch eingestellt.\n"
           return 0
       fi
+}
+
+webmininstall() {
+  # Prüfen ob "sudo" installiert ist
+  checksudo || return 1
+
+    local spinner="/|\\-"
+    local i=1
+    # Prüfen ob "Webmin" bereits installiert ist
+    printf "\n🔍 Prüfe Installationsstatus von grafischer Oberläche 'Webmin'...\n\n"
+
+    # Wir führen die Prüfung in einer Variablen aus, um Job-Meldungen zu vermeiden
+    # Das geht schnell genug, dass wir den Spinner manuell kurz zeigen
+    for j in {1..8}; do
+        i=$(( (i % 4) + 1 ))
+        printf "\b%s" "${spinner:$i-1:1}"
+        sleep 0.1
+    done
+
+    # Jetzt die echte Prüfung ohne Hintergrundprozess-Meldungen
+    local check_result=$(dpkg -l 2>/dev/null | grep "webmin")
+
+    if [[ -n "$check_result" ]]; then
+        printf "\b✅ fertig...\n"
+        printf "\n🚀 Die grafische Oberfläche 'Webmin' ist bereits installiert.\n"
+        # Extrahiert nur die Version sauber
+        local version=$(echo "$check_result" | awk '{print $3}')
+        printf "   -> Version: $version\n\n"
+        return 0
+    else
+        if [[ $# -eq 0 ]]; then
+        printf "\b \b"
+        printf "\nℹ️  Die grafische Oberfläche 'Webmin' wurde nicht gefunden.\n\n"
+        printf "\n⌨️ Weiter mit beliebiger Taste...\n\n"
+        read -n 1 -s -r
+        else
+        # Auch im Silent-Mode den Spinner sauber entfernen
+        printf "\b \b"
+        fi
+    fi
+
+
+    clear # Bildschirm leeren
+    printf "\n\n"
+    read -r -p "❓ Möchtest du die grafische Oberfläche 'Webmin' jetzt installieren? (ja/nein): " wmconfirm
+    if [[ "$wmconfirm" == "ja" ]]; then
+        printf "\n\n"
+        printf "\n🚀 Starte Webmin-Installation - Bitte warten...\n\n"
+
+        # Abhängigkeiten installieren (curl wird für das Skript benötigt)
+        sudo dpkg --configure -a && sudo apt update && sudo apt --assume-yes upgrade && sudo apt --assume-yes dist-upgrade &&  sudo apt --assume-yes autoremove && sudo apt autoclean
+        sudo apt-get install -y curl gnupg2 apt-transport-https
+
+        # Offizielles Webmin Repository-Setup-Skript laden und ausführen
+        # Dies fügt automatisch den Key und die Sources hinzu
+        curl -o setup-repos.sh https://raw.githubusercontent.com/webmin/webmin/master/setup-repos.sh
+        sudo sh setup-repos.sh -f  # -f erzwingt die Ausführung ohne erneute Bestätigung
+
+        # Webmin installieren
+        sudo apt-get install -y webmin --install-recommends
+
+        # Aufräumen
+        rm setup-repos.sh
+
+        # Firewall-Port 10000 freischalten (falls UFW aktiv ist)
+        # if command -v ufw > /dev/null; then
+        #    sudo ufw allow 10000/tcp
+        #    sudo ufw reload
+        # fi
+
+        printf "\n✅ Die grafische Oberfläche 'Webmin' wurde installiert. -  Zugriff über: https://%s:10000\n\n" "$(hostname -I | awk '{print $1}')"
+    else
+        printf "\n⏩ Die grafische Oberfläche 'Webmin' wird ***nicht*** installiert.\n\n"
+    fi
 }
 
 # Funktion beim start der .bashrc Datei AUFRUFEN (muss ganz unten stehen)
