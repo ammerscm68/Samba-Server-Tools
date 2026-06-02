@@ -17,8 +17,8 @@ fi
 clear
 printf "\n\n"
 printf "========================================================\n"
-printf "🌐        SAMBA-Server-Tools Version 3.1\n" 
-printf "ℹ️ (Interaktive Installation von Pi-hole und Optionen)\n"
+printf "🌐        SAMBA-Server-Tools Version 3.3\n" 
+printf "ℹ️ (Interaktive Installation von SAMBA und Optionen)\n"
 printf "========================================================\n"
 
 # 1. Download
