@@ -17,7 +17,9 @@
   <br>
   Many more simplified commands can be found in the aliases of the .bashrc file. <br>
   <br>
+  
 ---
+
   The tools will of course need to be customized for the main user. <br>
   In my case, I simply named the user "samba". <br>
   You can then create multiple users who, for example, are only allowed <br>
