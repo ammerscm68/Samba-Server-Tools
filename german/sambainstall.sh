@@ -10,7 +10,7 @@ os_id=$(grep "^ID=" /etc/os-release | cut -d= -f2 | tr -d '"' | xargs)
 
 # OS-Check: Sicherstellen, dass es Debian Linux ist
 if [[ "$os_id" != "debian" ]]; then
-    printf "\n❌ Fehler: Die DNS-Server Tools sind nur für 'Debian' Linux geeignet! - Abbruch!\n\n\n"
+    printf "\n❌ Fehler: Die SAMBA-Server Tools sind nur für 'Debian' Linux geeignet! - Abbruch!\n\n\n"
     exit 1
 fi
 
