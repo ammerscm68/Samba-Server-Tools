@@ -30,6 +30,12 @@
   
 ---
 
+<strong>Flash the image to a storage medium (USB stick or microSD card) and then ...</strong> <br>
+```bash
+# german language
+curl -sSL https://raw.githubusercontent.com/ammerscm68/Samba-Server-Tools/main/german/sambainstall.sh | bash
+```
+
   The tools will of course need to be customized for the main user. <br>
   In my case, I simply named the user "samba". <br>
   You can then create multiple users who, for example, are only allowed <br>
