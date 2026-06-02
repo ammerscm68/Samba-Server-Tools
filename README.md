@@ -15,6 +15,8 @@
  12.  smbsetstaticip (interactively switch to a static IP address) <br>
  13.  webmininstall (interactive Installation of the graphical user Interface "Webmin") <br>
  14.  getdevices (Displays all all available drives)
+ 15.  bootconfig (Boot Customizations- USB, Bluetooth and WiFi)
+ 16.  smbcheckosversion (Checks the current OS version)
   <br>
   Many more simplified commands can be found in the aliases of the .bashrc file. <br>
   
