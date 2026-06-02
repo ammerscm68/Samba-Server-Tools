@@ -22,6 +22,9 @@
  19.  mountstatus (Shows all mounted shares)
  20.  checksmbconfig (Checks whether if the configuration is valid)
  21.  select_mountpoint (Selection of the desired mount point)
+ 22.  getipv4    (Displays the current IPv4 Address) 
+ 23.  webmininstall (Automatic Install "Webmin" for Raspberry Pi Management - [Optional])
+ 24.  printserverinstall (Installs a CUPS Print-Server with many Printer drivers - [Optional])
   <br>
   Many more simplified commands can be found in the aliases of the .bashrc file. <br>
   
