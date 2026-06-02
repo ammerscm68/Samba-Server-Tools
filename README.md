@@ -16,7 +16,6 @@
  13.  webmininstall (interactive Installation of the graphical user Interface "Webmin") <br>
   <br>
   Many more simplified commands can be found in the aliases of the .bashrc file. <br>
-  <br>
   
 ---
 
