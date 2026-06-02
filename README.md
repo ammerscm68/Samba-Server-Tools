@@ -17,28 +17,9 @@
   <br>
   Many more simplified commands can be found in the aliases of the .bashrc file. <br>
   <br>
-  **************************************************************************************************************<br>
-  Version 2.5 - interactive Installation of the graphical user Interface "Webmin" <br>
-  **************************************************************************************************************<br>
-  Version 2.4 - Upon request, it is now possible to interactively switch to a static IP address. <br>
-  **************************************************************************************************************<br>
-  Version 2.3 - A new feature has been added, named: "autoupdate" - Automatic Update Raspberry PI OS. <br>
-  **************************************************************************************************************<br>
-  Version 2.2 - Interactive User Manager - add a new Menu entry. SAMBA installation now interactive <br>
-  **************************************************************************************************************<br>
-  Version 2.1 - Interactive User Manager added. <br>
-  **************************************************************************************************************<br>
-  ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++<br>
-  Version 2.0 has been completely redesigned. Samba server configuration is <<< now entirely interactive >>>. <br>
-  ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++<br>
-  **************************************************************************************************************<br>
-  Version 1.1 included some improvements to the logic and a bug fix. <br>
-  On Version 1.1 allows the management of a maximum of 3 shares. <br>
-  **************************************************************************************************************<br>
   <br>
-  Simply copy the aliases and functions into the [.bashrc] file of the mainuser, restart the <br>
-  Raspberry Pi, and you'll have a simple NAS-Server. <br>
-  <br>
+
+  
   The tools will of course need to be customized for the main user. <br>
   In my case, I simply named the user "samba". <br>
   You can then create multiple users who, for example, are only allowed <br>
