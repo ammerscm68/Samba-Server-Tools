@@ -35,6 +35,14 @@
 # german language
 curl -sSL https://raw.githubusercontent.com/ammerscm68/Samba-Server-Tools/main/german/sambainstall.sh | bash
 ```
+```bash
+# english-us language
+curl -sSL https://raw.githubusercontent.com/ammerscm68/Samba-Server-Tools/main/english-us/sambainstall.sh | bash
+```
+```bash
+# english-gb language
+curl -sSL https://raw.githubusercontent.com/ammerscm68/Samba-Server-Tools/main/english-gb/sambainstall.sh | bash
+```
 
   The tools will of course need to be customized for the main user. In my case, I simply named the user "samba". <br>
   You can then create multiple users who, for example, are only allowed <br>
