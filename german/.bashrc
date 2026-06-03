@@ -333,7 +333,7 @@ smbsetstaticip() {
       sudo dpkg --configure -a && sudo apt update && sudo apt --assume-yes upgrade && sudo apt --assume-yes dist-upgrade
       sudo apt --assume-yes autoremove
       sudo apt autoclean
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" network-Manager # Netzwerkmanager installieren
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" network-manager # Netzwerkmanager installieren
     printf "\n\n🚀 Das System muss neu starten um den 'Netzwerk-Manager' zu aktivieren.\n\n"
     printf "\n🔄 Der Neustart erfolgt in 15 Sekunden (Abbruch mit Strg+C)...\n\n"
     sleep 15
@@ -775,7 +775,7 @@ checksmbinstall() {
       sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" mc # Midnight Commander
       sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" fail2ban # fail2ban installieren
       sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" iptables-persistent # iptables-persistent installieren
-      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" network-Manager # Netzwerkmanager installieren
+      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" network-manager # Netzwerkmanager installieren
 
       # Nach Installation erneut prüfen
       if dpkg -l | grep -q "^ii  samba " >/dev/null 2>&1; then
