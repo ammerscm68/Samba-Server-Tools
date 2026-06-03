@@ -453,7 +453,7 @@ smbusermanager() {
                 fi
 
                 read -r -p "🔄 Try again now? (yes/no): " retry
-                [[ "$retry" != "yes" && "$retry" != "ja" ]] && { printf "\n⚠️ Operation canceled by user.\n\n"; return 1; }
+                [[ "$retry" != "yes" ]] && { printf "\n⚠️ Operation canceled by user.\n\n"; return 1; }
             done
 
             printf "\n⚙️ User is being processed - please wait...\n\n"
@@ -507,7 +507,7 @@ smbusermanager() {
              fi
 
              read -r -p "🔄 Try again now? (yes/no): " retry
-             [[ "$retry" != "yes" && "$retry" != "ja" ]] && { printf "\n⚠️ Operation canceled by user.\n\n"; return 1; }
+             [[ "$retry" != "yes" ]] && { printf "\n⚠️ Operation canceled by user.\n\n"; return 1; }
             done
 
             # 1. Set Samba password
@@ -544,11 +544,11 @@ smbusermanager() {
 
            printf "\n⚠️  Should '%s' really be completely deleted (System & Samba)? " "$netuser"
            read -r -p "👉 (yes/no): " delconfirm1
-           if [[ "$delconfirm1" == "yes" || "$delconfirm1" == "ja" ]]; then
+           if [[ "$delconfirm1" == "yes" ]]; then
                # Second prompt
                printf "\n"
                read -r -p "❓ Are you absolutely sure? (yes/no): " delconfirm2
-               if [[ "$delconfirm2" == "yes" || "$delconfirm2" == "ja" ]]; then
+               if [[ "$delconfirm2" == "yes" ]]; then
                    printf "\n⚙️  Deletion process in progress - Please wait...\n\n"
                    # Delete from Samba first, then from the system
                    sudo smbpasswd -x "$netuser" &>/dev/null
@@ -593,7 +593,7 @@ checksmbinstall() {
     printf "\n\n"
     read -r -p "❓ Should Samba be installed automatically now? (yes/no): " inst_answer
 
-    if [[ "$inst_answer" == "yes" || "$inst_answer" == "ja" ]]; then
+    if [[ "$inst_answer" == "yes" ]]; then
         clear # Clear screen
         printf "\n\n🚀 Starting system update - Please wait...\n\n\n"
         sudo dpkg --configure -a && sudo apt update && sudo apt --assume-yes upgrade && sudo apt --assume-yes dist-upgrade
@@ -636,7 +636,7 @@ checksmbinstall() {
         printf "\n\n\n"
         read -r -p "❓ Should automatic system updates be configured? (yes/no): " au_antwort
         printf "\n"
-        if [[ "$au_antwort" == "yes" || "$au_antwort" == "ja" ]]; then
+        if [[ "$au_antwort" == "yes" ]]; then
         autoupdate -c
         fi
         printf "\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -979,7 +979,7 @@ EOF
     read -r -p "❓ Should an entry in 'fstab' be created now? (yes/no): " fstab_antwort
     printf "\n"
 
-    if [[ "$fstab_antwort" == "ja" ]]; then
+    if [[ "$fstab_antwort" == "yes" ]]; then
         clear && echo -e "\n\n" && getdevices
         echo -e "\n\n\n"
         read -r -p "❓ For which drive should the entry be created? (e.g., sdb1): " devchoice
@@ -1381,7 +1381,7 @@ setfstab() {
   printf "\n\n\n"
   read -r -p "❓ Create 'fstab' entry now? (yes/no): " antwort
   printf "\n"
-  if [[ "$antwort" == "yes" || "$antwort" == "ja" ]]; then
+  if [[ "$antwort" == "yes" ]]; then
   # Remove existing entry for this mountpoint (regardless of which UUID was there)
   if grep -q "[[:space:]]$MOUNTPOINT[[:space:]]" /etc/fstab; then
     printf "\nℹ️  Removing old fstab entry for %s...\n" "$MOUNTPOINT"
@@ -1399,7 +1399,7 @@ setfstab() {
   # After fstab entry: Mount prompt
   read -r -p "❓ Should the partition also be mounted now? ($part → $MOUNTPOINT) (yes/no): " mount_antwort
   printf "\n"
-    if [[ "$mount_antwort" == "yes" || "$mount_antwort" == "ja" ]]; then
+    if [[ "$mount_antwort" == "yes" ]]; then
     clear
     smbmount "$dev" afterfstab || return 1
     else
@@ -1451,7 +1451,7 @@ smbmount() {
   mount_antwort="yes" # Set to "yes" immediately
   fi
 
-  if [[ "$mount_antwort" == "yes" || "$mount_antwort" == "ja" ]]; then
+  if [[ "$mount_antwort" == "yes" ]]; then
     # Check if something is already mounted there
     if mountpoint -q "$MOUNTPOINT" > /dev/null 2>&1; then
        printf "\n⚠️  Note: %s is already occupied. Attempting to mount anyway...\n" "$MOUNTPOINT"
@@ -1759,7 +1759,7 @@ EOF
         fi
 
         read -r -p "❓ Should 'autoupdate' really be disabled? (yes/no): " auconfirm
-        if [[ "$auconfirm" == "yes" || "$auconfirm" == "ja" ]]; then
+        if [[ "$auconfirm" == "yes" ]]; then
             # Delete file
             rm "$script_path" > /dev/null && rm "$log_path" > /dev/null
             # Remove cron job from crontab
@@ -2259,7 +2259,7 @@ printserverinstall() {
     printf "\n❓ Would you like to install the 'CUPS Print-Server' now? (yes/no): "
     read -r cups_confirm
 
-    if [[ "$cups_confirm" == "yes" || "$cups_confirm" == "ja" ]]; then
+    if [[ "$cups_confirm" == "yes" ]]; then
     local cups_conf="/etc/cups/cupsd.conf"
         
         # 1. System update beforehand
